@@ -1,1 +1,4 @@
-venv
+/misc/mongo_sandbox/mongo_data/
+/task_1/mongo_1/init-sharding.js/
+/task_1/mongo_1/mongo_data/
+/uv.lock
