@@ -57,6 +57,42 @@ PyObjectId = Annotated[str, BeforeValidator(str)]
 
 @app.on_event("startup")
 async def startup():
+
+    # Initialize database (if not already initialized) and fill it with 1000 simple documents
+    db_name = "somedb"
+    collection_name = "helloDoc"
+
+    # Get or create database
+    db = client[db_name]
+
+    # Check if collection exists
+    collection_list = await db.list_collection_names()
+    if collection_name not in collection_list:
+        # Enable sharding on the database
+        admin_db = client.admin
+        try:
+            # Enable sharding on the database
+            await admin_db.command("enableSharding", db_name)
+
+            # Create collection with sharding
+            await db.create_collection(collection_name)
+
+            # Shard the collection with hashed shard key on _id
+            await admin_db.command({"shardCollection": f"{db_name}.{collection_name}", "key": {"_id": "hashed"}})
+            logger.info(f"Enabled hashed sharding on '{collection_name}'")
+
+            # Now insert the data
+            collection = db[collection_name]
+            documents = [{"age": i, "name": f"ly{i}"} for i in range(1000)]
+            await collection.insert_many(documents)
+            logger.info(f"Inserted 1000 documents into '{collection_name}'")
+
+        except Exception as e:
+            logger.error(f"Error during database setup: {e}")
+            raise
+    else:
+        logger.info(f"Collection '{collection_name}' already exists")
+
     if REDIS_URL:
         redis = aioredis.from_url(REDIS_URL, encoding="utf8", decode_responses=True)
         FastAPICache.init(RedisBackend(redis), prefix="api:cache")
@@ -192,4 +228,4 @@ async def create_user(collection_name: str, user: UserModel = Body(...)):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=9000)
+    uvicorn.run(app, host="0.0.0.0", port=9000, log_level="debug")
