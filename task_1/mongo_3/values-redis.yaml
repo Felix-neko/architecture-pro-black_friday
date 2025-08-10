@@ -1,0 +1,61 @@
+# Redis Cluster configuration для minikube
+# 5 шардов с коэффициентом репликации 2 (1 мастер + 1 реплика)
+
+  # Количество узлов в кластере (должно быть кратно (replicaCount + 1))
+  # 5 шардов × 2 узла (мастер + реплика) = 10 узлов
+cluster:
+  nodes: 18
+  replicas: 1  # 1 реплика на мастер (коэффициент репликации 2)
+
+# Auth (простая настройка для dev)
+auth:
+  enabled: true
+  password: "redis-dev-password"  # Поменяйте в продакшене!
+
+redis:
+  resourcesPreset: micro
+
+  # Увеличенные таймауты для надежности
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 10
+
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 120
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+pdb:
+  enabled: true
+  minAvailable: 50%  # Минимум 50% узлов должны быть доступны
+
+# Tolerations и node affinity (для minikube не нужны)
+tolerations: []
+nodeSelector: {}
+affinity: {}
+
+# Backup configuration (для dev среды)
+backup:
+  enabled: false
+
+# TLS (отключен для dev)
+tls:
+  enabled: false
+
+
+# Дополнительные лейблы
+commonLabels:
+  app.kubernetes.io/component: redis-cluster
+  environment: development
+
+# Дополнительные аннотации
+commonAnnotations:
+  description: "Redis Cluster для разработки"
+
+# Sidecars и init containers
+sidecars: []
+initContainers: []
