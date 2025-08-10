@@ -1,5 +1,6 @@
 from typing import List, Dict
 import os, sys
+import time
 import logging
 
 # Настройка логирования
@@ -104,6 +105,49 @@ def is_replica_set_initialized(client: pymongo.MongoClient) -> bool:
     return "setName" in status
 
 
+def wait_for_primary_election(servers: List[str], rs_name: str, timeout: int = 60) -> bool:
+    """Дождаться выбора primary в replica set."""
+    logger.info("Ожидание выбора primary узла...")
+
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        try:
+            # Ищем primary узел
+            primary_found = False
+
+            for server in servers:
+                # Используем replica set подключение с коротким таймаутом
+                client = pymongo.MongoClient(
+                    server, serverSelectionTimeoutMS=2000, connectTimeoutMS=2000, directConnection=True
+                )
+
+                status = client.admin.command("replSetGetStatus")
+                print(status)
+                client.close()
+
+                for member in status.get("members", []):
+                    if member.get("stateStr") == "PRIMARY":
+                        logger.info(f"Primary узел найден: {member.get('name')}")
+                        primary_found = True
+                        break
+
+            if primary_found:
+                return True
+            else:
+                logger.info(f"Primary узел еще не выбран, status: {status}")
+
+        except (OperationFailure, ConnectionFailure, ServerSelectionTimeoutError) as ex:
+            # Replica set еще не готов или primary не выбран
+            logging.error(ex)
+            pass
+
+        logger.info("Ожидание выбора primary... (проверка через 2 секунды)")
+        time.sleep(2)
+
+    logger.error(f"Primary узел не был выбран за {timeout} секунд")
+    return False
+
+
 if __name__ == "__main__":
 
     running_in_docker = os.environ.get("CONTAINER") == "docker"
@@ -123,3 +167,5 @@ if __name__ == "__main__":
             client.close()
             break  # Считаем, что если удалось хотя бы на одном конфиг-сервере, то инициализация и так произойдёт
         client.close()
+
+    wait_for_primary_election(conn_settings.config_servers, conn_settings.config_rs_name)
