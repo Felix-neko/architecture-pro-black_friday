@@ -12,7 +12,7 @@ services:
       - ./mongo_data/configsvr:/data/db
     networks:
       - mongodb-network
-    command: mongod --configsvr --replSet configrs --port 27017 --dbpath /data/db
+    command: mongod --configsvr --replSet configrs --port 27017 --dbpath /data/db --bind_ip_all
     healthcheck:
       test: ["CMD", "mongosh", "--port", "27017", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -31,7 +31,7 @@ services:
       - ./mongo_data/shard1:/data/db
     networks:
       - mongodb-network
-    command: mongod --shardsvr --replSet shard1rs --port 27017 --dbpath /data/db
+    command: mongod --shardsvr --replSet shard1rs --port 27017 --dbpath /data/db --bind_ip_all
     healthcheck:
       test: ["CMD", "mongosh", "--port", "27017", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -48,7 +48,7 @@ services:
       - ./mongo_data/shard2:/data/db
     networks:
       - mongodb-network
-    command: mongod --shardsvr --replSet shard2rs --port 27017 --dbpath /data/db
+    command: mongod --shardsvr --replSet shard2rs --port 27017 --dbpath /data/db --bind_ip_all
     healthcheck:
       test: ["CMD", "mongosh", "--port", "27017", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -65,13 +65,13 @@ services:
       - ./mongo_data/shard3:/data/db
     networks:
       - mongodb-network
-    command: mongod --shardsvr --replSet shard3rs --port 27017 --dbpath /data/db
+    command: mongod --shardsvr --replSet shard3rs --port 27017 --dbpath /data/db --bind_ip_all
     healthcheck:
       test: ["CMD", "mongosh", "--port", "27017", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
 
-  # Настраиваем отдельные шарды
+  # Инициализация replica sets
   shards-setup:
     image: mongo:latest
     container_name: shards-setup
@@ -88,15 +88,8 @@ services:
         condition: service_healthy
     volumes:
       - ./init-sharding.js:/init-sharding.js
-    command: >
-      bash -c "
-        mongosh --host configsvr:27017 --eval 'rs.initiate({_id: \"configrs\", configsvr: true, members: [{_id: 0, host: \"configsvr:27017\"}]})' &&
-        mongosh --host shard1:27017 --eval 'rs.initiate({_id: \"shard1rs\", members: [{_id: 0, host: \"shard1:27017\"}]})' &&
-        mongosh --host shard2:27017 --eval 'rs.initiate({_id: \"shard2rs\", members: [{_id: 0, host: \"shard2:27017\"}]})' &&
-        mongosh --host shard3:27017 --eval 'rs.initiate({_id: \"shard3rs\", members: [{_id: 0, host: \"shard3:27017\"}]})' &&
-        sleep 5 &&
-        echo 'All replica sets initialized successfully'
-      "
+      - ./scripts/init-replica-sets.sh:/scripts/init-replica-sets.sh
+    command: bash /scripts/init-replica-sets.sh
     restart: "no"
 
   # Mongos Router
@@ -126,13 +119,9 @@ services:
     depends_on:
       mongos:
         condition: service_healthy
-    command: >
-      bash -c "
-        mongosh --host mongos:27017 --eval 'sh.addShard(\"shard1rs/shard1:27017\")' &&
-        mongosh --host mongos:27017 --eval 'sh.addShard(\"shard2rs/shard2:27017\")' &&
-        mongosh --host mongos:27017 --eval 'sh.addShard(\"shard3rs/shard3:27017\")' &&
-        mongosh --host mongos:27017 --eval 'sh.status()'
-      "
+    volumes:
+      - ./scripts/setup-shards.sh:/scripts/setup-shards.sh
+    command: bash /scripts/setup-shards.sh
     restart: "no"
 
   # Mongo Express for web interface
