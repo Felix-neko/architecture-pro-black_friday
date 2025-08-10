@@ -2,15 +2,18 @@
 
 import asyncio
 from typing import Optional
-from beanie import Document, init_beanie
-from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import MongoClient
 import random
 from datetime import datetime
+
+from pydantic import Field
+from beanie import Document, init_beanie, PydanticObjectId
+from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import MongoClient
 
 
 class TestDocument(Document):
     """Тестовая модель документа для проверки шардирования"""
+    id: PydanticObjectId = Field(default_factory=PydanticObjectId)
     name: str
     age: int
     city: str
@@ -47,20 +50,21 @@ def setup_sharding():
         result = admin_db.command("enableSharding", "test_sharding_db")
         print(f"✅ Результат: {result}")
         
-        # Создаем индекс для ключа шардирования
-        test_db = client.test_sharding_db
-        test_collection = test_db.test_collection
-        test_collection.create_index("age")
-        print("📊 Создан индекс для поля 'age'")
+        print("📊 Используем встроенный индекс для поля '_id'")
         
-        # Включаем шардирование для коллекции по полю 'age'
-        print("🔧 Включаем шардирование для коллекции test_collection...")
+        # Включаем ХЕШИРОВАННОЕ шардирование для коллекции по полю '_id'
+        print("🔧 Включаем ХЕШИРОВАННОЕ шардирование для коллекции test_collection...")
+        print("💡 Это обеспечит мгновенное распределение новых документов!")
+        
         result = admin_db.command(
             "shardCollection", 
             "test_sharding_db.test_collection",
-            key={"age": 1}  # Шардируем по полю age
+            key={"_id": "hashed"}  # ХЕШИРОВАННОЕ шардирование!
         )
         print(f"✅ Результат: {result}")
+        
+        # При хешированном шардировании MongoDB автоматически создает chunks
+        print("🎯 MongoDB автоматически создаст chunks для равномерного распределения")
         
     except Exception as e:
         print(f"⚠️ Ошибка при настройке шардирования: {e}")
@@ -149,62 +153,45 @@ def check_shard_distribution():
         total_via_mongos = stats.get('count', 0)
         print(f"   Всего документов через mongos: {total_via_mongos}")
         
-        # Проверяем распределение chunks
-        config_db = mongos_client.config
-        chunks = list(config_db.chunks.find({"ns": "test_sharding_db.test_collection"}))
-        print(f"   Количество chunks: {len(chunks)}")
-        
         mongos_client.close()
         
     except Exception as e:
         print(f"❌ Ошибка при получении статистики через mongos: {e}")
 
 
-def force_chunk_splitting():
-    """Принудительное разделение chunks для лучшего распределения"""
+
+def clean_existing_collection():
+    """Простая очистка существующей коллекции для тестирования"""
     client = MongoClient("mongodb://localhost:27017/")
-    admin_db = client.admin
     
     try:
-        print("\n🔪 Принудительное разделение chunks...")
+        test_db = client.test_sharding_db
+        collection_name = "test_collection"
         
-        # Проверяем текущие chunks
-        config_db = client.config
-        chunks_before = list(config_db.chunks.find({"ns": "test_sharding_db.test_collection"}))
-        print(f"📊 Chunks до разделения: {len(chunks_before)}")
+        # Проверяем существование коллекции
+        existing_collections = test_db.list_collection_names()
         
-        # Принудительно разделяем chunks по возрастным группам
-        split_points = [30, 50, 70]  # Разделяем на группы: 18-30, 30-50, 50-70, 70-80
-        
-        for split_point in split_points:
+        if collection_name in existing_collections:
+            print(f"⚠️ Коллекция '{collection_name}' существует, удаляем...")
+            
+            # Просто удаляем коллекцию
+            test_db[collection_name].drop()
+            print("✅ Коллекция удалена")
+            
+            # Быстрая очистка метаданных шардирования (на всякий случай)
             try:
-                result = admin_db.command(
-                    "split",
-                    "test_sharding_db.test_collection",
-                    middle={"age": split_point}
-                )
-                print(f"✂️ Разделение по age={split_point}: {result}")
+                config_db = client.config
+                config_db.chunks.delete_many({"ns": f"test_sharding_db.{collection_name}"})
+                config_db.collections.delete_many({"_id": f"test_sharding_db.{collection_name}"})
+                print("🧹 Метаданные очищены")
             except Exception as e:
-                print(f"⚠️ Не удалось разделить по age={split_point}: {e}")
-        
-        # Проверяем chunks после разделения
-        chunks_after = list(config_db.chunks.find({"ns": "test_sharding_db.test_collection"}))
-        print(f"📊 Chunks после разделения: {len(chunks_after)}")
-        
-        # Включаем балансировщик и запускаем балансировку
-        print("\n⚖️ Запускаем балансировку...")
-        admin_db.command("balancerStart")
-        
-        # Ждем немного для балансировки
-        import time
-        time.sleep(3)
-        
-        # Проверяем статус балансировщика
-        balancer_status = admin_db.command("balancerStatus")
-        print(f"🔄 Статус балансировщика: {balancer_status.get('mode', 'unknown')}")
-        
+                print(f"⚠️ Не критично: {e}")
+                
+        else:
+            print(f"✅ Коллекция '{collection_name}' не существует")
+            
     except Exception as e:
-        print(f"❌ Ошибка при разделении chunks: {e}")
+        print(f"❌ Ошибка при очистке: {e}")
     
     finally:
         client.close()
@@ -219,18 +206,14 @@ async def main():
     client = await init_database()
     
     try:
+        # Очистка существующей коллекции
+        clean_existing_collection()
+        
         # Настройка шардирования
         setup_sharding()
         
         # Вставка тестовых данных
         await insert_test_data()
-        
-        # Принудительное разделение chunks после вставки данных
-        force_chunk_splitting()
-        
-        # Небольшая пауза для распределения данных
-        print("⏳ Ждем распределения данных по шардам...")
-        await asyncio.sleep(5)  # Увеличиваем время ожидания
         
         # Проверка распределения
         check_shard_distribution()
