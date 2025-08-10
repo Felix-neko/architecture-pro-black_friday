@@ -1,5 +1,6 @@
 import json
 import logging
+import logging.config  # Add this line
 import os
 import time
 from typing import List, Optional
@@ -29,6 +30,7 @@ app.add_middleware(
 
 DATABASE_URL = os.environ["MONGODB_URL"]
 DATABASE_NAME = os.environ["MONGODB_DATABASE_NAME"]
+
 REDIS_URL = os.getenv("REDIS_URL", None)
 
 
@@ -45,7 +47,7 @@ else:
     cache = nocache
 
 
-client = motor.motor_asyncio.AsyncIOMotorClient(DATABASE_URL)
+client = motor.motor_asyncio.AsyncIOMotorClient(DATABASE_URL, username="root", password="rootpass")
 db = client[DATABASE_NAME]
 
 # Represents an ObjectId field in the database.
@@ -84,9 +86,7 @@ async def root():
     collections = {}
     for collection_name in collection_names:
         collection = db.get_collection(collection_name)
-        collections[collection_name] = {
-            "documents_count": await collection.count_documents({})
-        }
+        collections[collection_name] = {"documents_count": await collection.count_documents({})}
     try:
         replica_status = await client.admin.command("replSetGetStatus")
         replica_status = json.dumps(replica_status, indent=2, default=str)
@@ -184,8 +184,12 @@ async def create_user(collection_name: str, user: UserModel = Body(...)):
     A unique `id` will be created and provided in the response.
     """
     collection = db.get_collection(collection_name)
-    new_user = await collection.insert_one(
-        user.model_dump(by_alias=True, exclude=["id"])
-    )
+    new_user = await collection.insert_one(user.model_dump(by_alias=True, exclude=["id"]))
     created_user = await collection.find_one({"_id": new_user.inserted_id})
     return created_user
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=9000)
