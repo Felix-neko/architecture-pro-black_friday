@@ -4,13 +4,14 @@
   # Количество узлов в кластере (должно быть кратно (replicaCount + 1))
   # 5 шардов × 2 узла (мастер + реплика) = 10 узлов
 cluster:
+  init: true
   nodes: 18
   replicas: 1  # 1 реплика на мастер (коэффициент репликации 2)
+#  externalAccess:
+#    enabled: true
 
-# Auth (простая настройка для dev)
-auth:
-  enabled: true
-  password: "redis-dev-password"  # Поменяйте в продакшене!
+password: "redis-dev-password"  # Поменяйте в продакшене!
+
 
 redis:
   resourcesPreset: micro
