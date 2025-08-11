@@ -59,12 +59,11 @@ PyObjectId = Annotated[str, BeforeValidator(str)]
 async def startup():
 
     # Initialize database (if not already initialized) and fill it with 1000 simple documents
-    db_name = "somedb"
     collection_name = "helloDoc"
 
-    # Get or create database
-    db = client[db_name]
+    # db.drop_collection(collection_name)
 
+    # Get or create database
     # Check if collection exists
     collection_list = await db.list_collection_names()
     if collection_name not in collection_list:
@@ -72,13 +71,13 @@ async def startup():
         admin_db = client.admin
         try:
             # Enable sharding on the database
-            await admin_db.command("enableSharding", db_name)
+            await admin_db.command("enableSharding", DATABASE_NAME)
 
             # Create collection with sharding
             await db.create_collection(collection_name)
 
             # Shard the collection with hashed shard key on _id
-            await admin_db.command({"shardCollection": f"{db_name}.{collection_name}", "key": {"_id": "hashed"}})
+            await admin_db.command({"shardCollection": f"{DATABASE_NAME}.{collection_name}", "key": {"_id": "hashed"}})
             logger.info(f"Enabled hashed sharding on '{collection_name}'")
 
             # Now insert the data

@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: haproxy-redis
+  namespace: ot-operators
+  labels:
+    app: haproxy-redis
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: haproxy-redis
+  template:
+    metadata:
+      labels:
+        app: haproxy-redis
+    spec:
+      containers:
+      - name: haproxy
+        image: haproxy:2.8-alpine
+        ports:
+        - containerPort: 6379
+          name: redis-write
+        - containerPort: 6380
+          name: redis-read
+        - containerPort: 8080
+          name: stats
+        volumeMounts:
+        - name: haproxy-config
+          mountPath: /usr/local/etc/haproxy
+        livenessProbe:
+          httpGet:
+            path: /stats
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+      volumes:
+      - name: haproxy-config
+        configMap:
+          name: haproxy-redis-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: haproxy-redis
+  namespace: ot-operators
+  labels:
+    app: haproxy-redis
+spec:
+  type: LoadBalancer
+  selector:
+    app: haproxy-redis
+  ports:
+  - name: redis-write
+    port: 6379
+    targetPort: 6379
+    protocol: TCP
+  - name: redis-read
+    port: 6380
+    targetPort: 6380
+    protocol: TCP
+  - name: stats
+    port: 8080
+    targetPort: 8080
+    protocol: TCP

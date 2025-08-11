@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: haproxy-redis-cluster-config
+  namespace: ot-operators
+data:
+  haproxy.cfg: |
+    global
+      daemon
+      maxconn 1024
+    
+    defaults
+      mode tcp
+      timeout connect 5000ms
+      timeout client 50000ms
+      timeout server 50000ms
+    
+    frontend stats
+      bind *:8080
+      mode http
+      stats enable
+      stats uri /stats
+    
+    frontend redis-cluster
+      bind *:6379
+      default_backend redis-cluster-nodes
+    
+    backend redis-cluster-nodes
+      mode tcp
+      balance roundrobin
+      option tcp-check
+      tcp-check send PING\r\n
+      tcp-check expect string +PONG
+      # Все ноды кластера
+      server redis-leader-0 redis-cluster-leader-0.redis-cluster-leader-headless.ot-operators.svc.cluster.local:6379 check
+      server redis-leader-1 redis-cluster-leader-1.redis-cluster-leader-headless.ot-operators.svc.cluster.local:6379 check
+      server redis-leader-2 redis-cluster-leader-2.redis-cluster-leader-headless.ot-operators.svc.cluster.local:6379 check
+      server redis-follower-0 redis-cluster-follower-0.redis-cluster-follower-headless.ot-operators.svc.cluster.local:6379 check
+      server redis-follower-1 redis-cluster-follower-1.redis-cluster-follower-headless.ot-operators.svc.cluster.local:6379 check
+      server redis-follower-2 redis-cluster-follower-2.redis-cluster-follower-headless.ot-operators.svc.cluster.local:6379 check

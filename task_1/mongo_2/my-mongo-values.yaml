@@ -1,4 +1,4 @@
-# values-mycluster.yaml
+# my-mongo-values.yaml
 auth:
   enabled: true
   rootPassword: "rootpass"
@@ -40,6 +40,7 @@ configsvr:
 # mongos (routers)
 mongos:
   replicaCount: 2
+  useStatefulSet: true
   affinity:
     podAntiAffinity:
       preferredDuringSchedulingIgnoredDuringExecution:

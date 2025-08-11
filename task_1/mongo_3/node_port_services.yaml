@@ -1,0 +1,128 @@
+# Generated with CLAUDE SONNET 4
+
+---
+# NodePort сервисы для доступа к каждой ноде Redis кластера
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-node-0-external
+  namespace: redis
+  labels:
+    app: redis-external-access
+spec:
+  type: NodePort
+  ports:
+  - port: 6379
+    targetPort: 6379
+    nodePort: 30001
+    protocol: TCP
+    name: redis
+  selector:
+    app.kubernetes.io/name: redis-cluster
+    app.kubernetes.io/instance: my-redis-cluster
+    statefulset.kubernetes.io/pod-name: my-redis-cluster-0
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-node-1-external
+  namespace: redis
+  labels:
+    app: redis-external-access
+spec:
+  type: NodePort
+  ports:
+  - port: 6379
+    targetPort: 6379
+    nodePort: 30002
+    protocol: TCP
+    name: redis
+  selector:
+    app.kubernetes.io/name: redis-cluster
+    app.kubernetes.io/instance: my-redis-cluster
+    statefulset.kubernetes.io/pod-name: my-redis-cluster-1
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-node-2-external
+  namespace: redis
+  labels:
+    app: redis-external-access
+spec:
+  type: NodePort
+  ports:
+  - port: 6379
+    targetPort: 6379
+    nodePort: 30003
+    protocol: TCP
+    name: redis
+  selector:
+    app.kubernetes.io/name: redis-cluster
+    app.kubernetes.io/instance: my-redis-cluster
+    statefulset.kubernetes.io/pod-name: my-redis-cluster-2
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-node-3-external
+  namespace: redis
+  labels:
+    app: redis-external-access
+spec:
+  type: NodePort
+  ports:
+  - port: 6379
+    targetPort: 6379
+    nodePort: 30004
+    protocol: TCP
+    name: redis
+  selector:
+    app.kubernetes.io/name: redis-cluster
+    app.kubernetes.io/instance: my-redis-cluster
+    statefulset.kubernetes.io/pod-name: my-redis-cluster-3
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-node-4-external
+  namespace: redis
+  labels:
+    app: redis-external-access
+spec:
+  type: NodePort
+  ports:
+  - port: 6379
+    targetPort: 6379
+    nodePort: 30005
+    protocol: TCP
+    name: redis
+  selector:
+    app.kubernetes.io/name: redis-cluster
+    app.kubernetes.io/instance: my-redis-cluster
+    statefulset.kubernetes.io/pod-name: my-redis-cluster-4
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-node-5-external
+  namespace: redis
+  labels:
+    app: redis-external-access
+spec:
+  type: NodePort
+  ports:
+  - port: 6379
+    targetPort: 6379
+    nodePort: 30006
+    protocol: TCP
+    name: redis
+  selector:
+    app.kubernetes.io/name: redis-cluster
+    app.kubernetes.io/instance: my-redis-cluster
+    statefulset.kubernetes.io/pod-name: my-redis-cluster-5
