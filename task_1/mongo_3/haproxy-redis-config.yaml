@@ -5,57 +5,50 @@ metadata:
 data:
   haproxy.cfg: |
     global
-      daemon
-      maxconn 1024
-    
+        daemon
+        log stdout local0
+        
     defaults
-      mode tcp
-      timeout connect 5000ms
-      timeout client 50000ms
-      timeout server 50000ms
-    
+        mode tcp
+        timeout connect 5000ms
+        timeout client 50000ms
+        timeout server 50000ms
+        log global
+        
+    # Stats interface
     frontend stats
-      bind *:8080
-      mode http
-      stats enable
-      stats uri /stats
-      stats refresh 30s
-      stats admin if TRUE
-    
-    # Write operations - только на leader-ноды
+        bind *:8080
+        mode http
+        stats enable
+        stats uri /stats
+        stats refresh 30s
+        stats admin if TRUE
+        
+    # Redis write operations (only leaders)
     frontend redis-write
-      bind *:6379
-      default_backend redis-leaders
-    
-    # Read operations - на все ноды (leaders + followers)
+        bind *:6379
+        default_backend redis-leaders
+        
+    # Redis read operations (all nodes)
     frontend redis-read
-      bind *:6380
-      default_backend redis-all-nodes
-    
-    # Backend для write операций (только leaders)
+        bind *:6380
+        default_backend redis-all-nodes
+        
+    # Backend for Redis leaders (write operations)
     backend redis-leaders
-      mode tcp
-      balance roundrobin
-      option tcp-check
-      tcp-check send PING\r\n
-      tcp-check expect string +PONG
-      # Leader ноды Redis кластера
-      server redis-leader-0 my-redis-leader-0.my-redis-leader-headless.redis.svc.cluster.local:6379 check
-      server redis-leader-1 my-redis-leader-1.my-redis-leader-headless.redis.svc.cluster.local:6379 check
-      server redis-leader-2 my-redis-leader-2.my-redis-leader-headless.redis.svc.cluster.local:6379 check
-    
-    # Backend для read операций (все ноды)
+        balance roundrobin
+        server redis-leader-0 my-redis-leader-0.my-redis-leader-headless.redis.svc.cluster.local:6379 check
+        server redis-leader-1 my-redis-leader-1.my-redis-leader-headless.redis.svc.cluster.local:6379 check
+        server redis-leader-2 my-redis-leader-2.my-redis-leader-headless.redis.svc.cluster.local:6379 check
+        
+    # Backend for all Redis nodes (read operations)
     backend redis-all-nodes
-      mode tcp
-      balance roundrobin
-      option tcp-check
-      tcp-check send PING\r\n
-      tcp-check expect string +PONG
-      # Leader-ноды
-      server redis-leader-0 my-redis-leader-0.my-redis-leader-headless.redis.svc.cluster.local:6379 check
-      server redis-leader-1 my-redis-leader-1.my-redis-leader-headless.redis.svc.cluster.local:6379 check
-      server redis-leader-2 my-redis-leader-2.my-redis-leader-headless.redis.svc.cluster.local:6379 check
-      # Follower-ноды
-      server redis-follower-0 my-redis-follower-0.my-redis-follower-headless.redis.svc.cluster.local:6379 check
-      server redis-follower-1 my-redis-follower-1.my-redis-follower-headless.redis.svc.cluster.local:6379 check
-      server redis-follower-2 my-redis-follower-2.my-redis-follower-headless.redis.svc.cluster.local:6379 check
+        balance roundrobin
+        # Leaders
+        server redis-leader-0 my-redis-leader-0.my-redis-leader-headless.redis.svc.cluster.local:6379 check
+        server redis-leader-1 my-redis-leader-1.my-redis-leader-headless.redis.svc.cluster.local:6379 check
+        server redis-leader-2 my-redis-leader-2.my-redis-leader-headless.redis.svc.cluster.local:6379 check
+        # Followers
+        server redis-follower-0 my-redis-follower-0.my-redis-follower-headless.redis.svc.cluster.local:6379 check
+        server redis-follower-1 my-redis-follower-1.my-redis-follower-headless.redis.svc.cluster.local:6379 check
+        server redis-follower-2 my-redis-follower-2.my-redis-follower-headless.redis.svc.cluster.local:6379 check
