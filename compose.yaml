@@ -15,9 +15,9 @@ services:
     ports:
       - 8080:8080
     environment:
-      MONGODB_URL: "mongodb://router-01:27017"
+      MONGODB_URL: "mongodb://mongos:27017"
 #      MONGODB_URL: "mongodb://mongodb1:27017"
-      MONGODB_DATABASE_NAME: "somedb"
+      MONGODB_DATABASE_NAME: "test_db"
 
 
 volumes:
@@ -26,5 +26,4 @@ volumes:
 
 networks:
   default:
-    external: true
-    name: mongo_shared_net
+    name: mongodb-network
