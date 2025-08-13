@@ -34,7 +34,7 @@ jobs:
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}  # Временный токен на 90 дней, только для пакетов
+        password: ${{ secrets.read_write_packages_token_25 }}  # Временный токен на 90 дней, только для пакетов
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
