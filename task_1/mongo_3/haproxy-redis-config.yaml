@@ -24,31 +24,19 @@ data:
         stats refresh 30s
         stats admin if TRUE
         
-    # Redis write operations (only leaders)
-    frontend redis-write
+    # Redis standalone mode - all traffic to primary node
+    frontend redis-standalone
         bind *:6379
-        default_backend redis-leaders
+        default_backend redis-primary
         
-    # Redis read operations (all nodes)
+    # Redis read operations - can use any node
     frontend redis-read
         bind *:6380
-        default_backend redis-all-nodes
+        default_backend redis-primary
         
-    # Backend for Redis leaders (write operations)
-    backend redis-leaders
-        balance roundrobin
+    # Backend for primary Redis node (to avoid MOVED errors)
+    backend redis-primary
+        balance first
         server redis-leader-0 my-redis-leader-0.my-redis-leader-headless.redis.svc.cluster.local:6379 check
-        server redis-leader-1 my-redis-leader-1.my-redis-leader-headless.redis.svc.cluster.local:6379 check
-        server redis-leader-2 my-redis-leader-2.my-redis-leader-headless.redis.svc.cluster.local:6379 check
-        
-    # Backend for all Redis nodes (read operations)
-    backend redis-all-nodes
-        balance roundrobin
-        # Leaders
-        server redis-leader-0 my-redis-leader-0.my-redis-leader-headless.redis.svc.cluster.local:6379 check
-        server redis-leader-1 my-redis-leader-1.my-redis-leader-headless.redis.svc.cluster.local:6379 check
-        server redis-leader-2 my-redis-leader-2.my-redis-leader-headless.redis.svc.cluster.local:6379 check
-        # Followers
-        server redis-follower-0 my-redis-follower-0.my-redis-follower-headless.redis.svc.cluster.local:6379 check
-        server redis-follower-1 my-redis-follower-1.my-redis-follower-headless.redis.svc.cluster.local:6379 check
-        server redis-follower-2 my-redis-follower-2.my-redis-follower-headless.redis.svc.cluster.local:6379 check
+        server redis-leader-1 my-redis-leader-1.my-redis-leader-headless.redis.svc.cluster.local:6379 check backup
+        server redis-leader-2 my-redis-leader-2.my-redis-leader-headless.redis.svc.cluster.local:6379 check backup
