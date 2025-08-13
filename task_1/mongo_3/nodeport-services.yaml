@@ -1,7 +1,7 @@
 # Generated with CLAUDE SONNET 4
 
 ---
-# NodePort сервисы для доступа к каждой ноде Redis кластера
+# NodePort-сервисы для доступа к каждой ноде Redis кластера
 apiVersion: v1
 kind: Service
 metadata:

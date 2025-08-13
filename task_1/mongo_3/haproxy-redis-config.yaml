@@ -1,8 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: haproxy-redis-cluster-config
-  namespace: ot-operators
+  name: haproxy-redis-config
 data:
   haproxy.cfg: |
     global
@@ -20,21 +19,43 @@ data:
       mode http
       stats enable
       stats uri /stats
+      stats refresh 30s
+      stats admin if TRUE
     
-    frontend redis-cluster
+    # Write operations - только на leader-ноды
+    frontend redis-write
       bind *:6379
-      default_backend redis-cluster-nodes
+      default_backend redis-leaders
     
-    backend redis-cluster-nodes
+    # Read operations - на все ноды (leaders + followers)
+    frontend redis-read
+      bind *:6380
+      default_backend redis-all-nodes
+    
+    # Backend для write операций (только leaders)
+    backend redis-leaders
       mode tcp
       balance roundrobin
       option tcp-check
       tcp-check send PING\r\n
       tcp-check expect string +PONG
-      # Все ноды кластера
-      server redis-leader-0 redis-cluster-leader-0.redis-cluster-leader-headless.ot-operators.svc.cluster.local:6379 check
-      server redis-leader-1 redis-cluster-leader-1.redis-cluster-leader-headless.ot-operators.svc.cluster.local:6379 check
-      server redis-leader-2 redis-cluster-leader-2.redis-cluster-leader-headless.ot-operators.svc.cluster.local:6379 check
-      server redis-follower-0 redis-cluster-follower-0.redis-cluster-follower-headless.ot-operators.svc.cluster.local:6379 check
-      server redis-follower-1 redis-cluster-follower-1.redis-cluster-follower-headless.ot-operators.svc.cluster.local:6379 check
-      server redis-follower-2 redis-cluster-follower-2.redis-cluster-follower-headless.ot-operators.svc.cluster.local:6379 check
+      # Leader ноды Redis кластера
+      server redis-leader-0 my-redis-leader-0.my-redis-leader-headless.redis.svc.cluster.local:6379 check
+      server redis-leader-1 my-redis-leader-1.my-redis-leader-headless.redis.svc.cluster.local:6379 check
+      server redis-leader-2 my-redis-leader-2.my-redis-leader-headless.redis.svc.cluster.local:6379 check
+    
+    # Backend для read операций (все ноды)
+    backend redis-all-nodes
+      mode tcp
+      balance roundrobin
+      option tcp-check
+      tcp-check send PING\r\n
+      tcp-check expect string +PONG
+      # Leader-ноды
+      server redis-leader-0 my-redis-leader-0.my-redis-leader-headless.redis.svc.cluster.local:6379 check
+      server redis-leader-1 my-redis-leader-1.my-redis-leader-headless.redis.svc.cluster.local:6379 check
+      server redis-leader-2 my-redis-leader-2.my-redis-leader-headless.redis.svc.cluster.local:6379 check
+      # Follower-ноды
+      server redis-follower-0 my-redis-follower-0.my-redis-follower-headless.redis.svc.cluster.local:6379 check
+      server redis-follower-1 my-redis-follower-1.my-redis-follower-headless.redis.svc.cluster.local:6379 check
+      server redis-follower-2 my-redis-follower-2.my-redis-follower-headless.redis.svc.cluster.local:6379 check
