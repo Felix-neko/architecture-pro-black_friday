@@ -1,13 +1,13 @@
 import json
 import logging
-import logging.config
+import logging.config  # Add this line
 import os
 import time
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 
 import motor.motor_asyncio
-from bson import json_util
-from fastapi import Body, FastAPI, HTTPException, status, Path
+from bson import ObjectId
+from fastapi import Body, FastAPI, HTTPException, status
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 from fastapi_cache.decorator import cache
@@ -23,10 +23,14 @@ logging.config.dictConfig(logging_config)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
-app.add_middleware(RouterLoggingMiddleware, logger=logger)
+app.add_middleware(
+    RouterLoggingMiddleware,
+    logger=logger,
+)
 
 DATABASE_URL = os.environ["MONGODB_URL"]
 DATABASE_NAME = os.environ["MONGODB_DATABASE_NAME"]
+
 REDIS_URL = os.getenv("REDIS_URL", None)
 
 
@@ -43,7 +47,7 @@ else:
     cache = nocache
 
 
-client = motor.motor_asyncio.AsyncIOMotorClient(DATABASE_URL)
+client = motor.motor_asyncio.AsyncIOMotorClient(DATABASE_URL, username="root", password="rootpass")
 db = client[DATABASE_NAME]
 
 # Represents an ObjectId field in the database.
@@ -53,10 +57,44 @@ PyObjectId = Annotated[str, BeforeValidator(str)]
 
 @app.on_event("startup")
 async def startup():
+
+    # Initialize database (if not already initialized) and fill it with 1000 simple documents
+    collection_name = "helloDoc"
+
+    # db.drop_collection(collection_name)
+
+    # Get or create database
+    # Check if collection exists
+    collection_list = await db.list_collection_names()
+    if collection_name not in collection_list:
+        # Enable sharding on the database
+        admin_db = client.admin
+        try:
+            # Enable sharding on the database
+            await admin_db.command("enableSharding", DATABASE_NAME)
+
+            # Create collection with sharding
+            await db.create_collection(collection_name)
+
+            # Shard the collection with hashed shard key on _id
+            await admin_db.command({"shardCollection": f"{DATABASE_NAME}.{collection_name}", "key": {"_id": "hashed"}})
+            logger.info(f"Enabled hashed sharding on '{collection_name}'")
+
+            # Now insert the data
+            collection = db[collection_name]
+            documents = [{"age": i, "name": f"ly{i}"} for i in range(1000)]
+            await collection.insert_many(documents)
+            logger.info(f"Inserted 1000 documents into '{collection_name}'")
+
+        except Exception as e:
+            logger.error(f"Error during database setup: {e}")
+            raise
+    else:
+        logger.info(f"Collection '{collection_name}' already exists")
+
     if REDIS_URL:
         redis = aioredis.from_url(REDIS_URL, encoding="utf8", decode_responses=True)
         FastAPICache.init(RedisBackend(redis), prefix="api:cache")
-    await client.admin.command("enableSharding", DATABASE_NAME)
 
 
 class UserModel(BaseModel):
@@ -87,8 +125,7 @@ async def root():
     try:
         replica_status = await client.admin.command("replSetGetStatus")
         replica_status = json.dumps(replica_status, indent=2, default=str)
-    except errors.OperationFailure as ex:
-        print(ex)
+    except errors.OperationFailure:
         replica_status = "No Replicas"
 
     topology_description = client.topology_description
@@ -168,49 +205,6 @@ async def show_user(collection_name: str, name: str):
     raise HTTPException(status_code=404, detail=f"User {name} not found")
 
 
-@app.post("/{collection_name}/create")
-async def create_collection(
-    collection_name: Annotated[str, Path(description="Имя коллекции")],
-    hash_shard_by_id: Annotated[bool, Path(description="Использовать ли хэш-шардинг")] = True,
-    n_test_docs: Annotated[
-        Optional[int], Path(description="Сколько тестовых документов заливать в базу при создании")
-    ] = 1000,
-):
-    """
-    Создать новую тестовую коллекцию (удалить старую, если нужно).
-    Включить хэш-шардинг по ID и заполнить её тестовыми данными.
-    """
-    collection_list = await db.list_collection_names()
-    if collection_name in collection_list:
-        await db.drop_collection(collection_name)
-        logger.info(f"Droped collection '{collection_name}'")
-
-    await db.create_collection(collection_name)
-    logger.info(f"Created collection '{collection_name}'")
-
-    if hash_shard_by_id:
-        await client.admin.command({"shardCollection": f"{DATABASE_NAME}.{collection_name}", "key": {"_id": "hashed"}})
-        logger.info(f"Enabled hashed sharding on '{collection_name}'")
-
-    if n_test_docs is not None:
-        collection = db[collection_name]
-        documents = [{"age": i, "name": f"ly{i}"} for i in range(n_test_docs)]
-        await collection.insert_many(documents)
-        logger.info(f"Inserted {n_test_docs} documents into '{collection_name}'")
-
-
-@app.get("/{collection_name}/stats")
-async def get_collection_stats(collection_name: Annotated[str, Path(description="Имя коллекции")]) -> Dict[str, Any]:
-    """
-    Получить статистику по коллекции
-    """
-    collection_list = await db.list_collection_names()
-    if collection_name not in collection_list:
-        raise HTTPException(status_code=404, detail=f"Collection {collection_name} not found")
-    stats = await db.command({"collStats": collection_name, "verbose": False})
-    return json.loads(json_util.dumps(stats))
-
-
 @app.post(
     "/{collection_name}/users",
     response_description="Add new user",
@@ -233,4 +227,4 @@ async def create_user(collection_name: str, user: UserModel = Body(...)):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="debug")
+    uvicorn.run(app, host="0.0.0.0", port=9000, log_level="debug")
