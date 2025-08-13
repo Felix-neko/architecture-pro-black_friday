@@ -54,7 +54,7 @@ PyObjectId = Annotated[str, BeforeValidator(str)]
 @app.on_event("startup")
 async def startup():
     if REDIS_URL:
-        redis = aioredis.from_url(REDIS_URL, encoding="utf8", decode_responses=True)
+        redis = aioredis.RedisCluster(startup_nodes=REDIS_URL, decode_responses=True, skip_full_coverage_check=True)
         FastAPICache.init(RedisBackend(redis), prefix="api:cache")
     await client.admin.command("enableSharding", DATABASE_NAME)
 
