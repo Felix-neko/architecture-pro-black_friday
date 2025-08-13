@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+
+  # Основное веб-приложение для тестирования
+  pymongo_api:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    container_name: pymongo_api
+    build:
+      context: ../../api_app
+      dockerfile: Dockerfile
+    ports:
+      - 8080:8080
+    environment:
+      MONGODB_URL: "mongodb://root:rootpass@host.docker.internal:30000"
+      MONGODB_DATABASE_NAME: "test_db"

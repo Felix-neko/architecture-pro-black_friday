@@ -3,6 +3,7 @@
 
 #30000: mongos-0
 #30001: mongos-1
+
 #30002: configsvr-0
 #30003: configsvr-1
 #30004: configsvr-2
