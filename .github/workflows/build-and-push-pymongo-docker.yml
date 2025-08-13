@@ -15,4 +15,4 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Build the Docker image for app.py
-      run: docker build api_app --file Dockerfile --tag pymongo_api:$(date +%s)
+      run: docker build api_app --tag pymongo_api:$(date +%s)
