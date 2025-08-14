@@ -39,6 +39,7 @@ DATABASE_URL = os.environ["MONGODB_URL"]
 DATABASE_NAME = os.environ["MONGODB_DATABASE_NAME"]
 REDIS_URL = os.getenv("REDIS_URL", None)
 REDIS_CLUSTER_MODE = bool(os.getenv("REDIS_CLUSTER_MODE", False))
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
 
 
 def nocache(*args, **kwargs):
@@ -67,9 +68,9 @@ async def startup():
     if REDIS_URL:
         if REDIS_CLUSTER_MODE:
             cluster_nodes = [ClusterNode(*elm.split(":")) for elm in REDIS_URL.split(",")]
-            redis = aioredis.RedisCluster(startup_nodes=cluster_nodes, encoding="utf8")
+            redis = aioredis.RedisCluster(startup_nodes=cluster_nodes, encoding="utf8", password=REDIS_PASSWORD)
         else:
-            redis = aioredis.from_url(REDIS_URL, encoding="utf8")
+            redis = aioredis.from_url(REDIS_URL, encoding="utf8", password=REDIS_PASSWORD)
 
         FastAPICache.init(RedisBackend(redis), prefix="api:cache")
     await client.admin.command("enableSharding", DATABASE_NAME)
