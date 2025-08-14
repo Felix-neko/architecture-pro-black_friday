@@ -14,6 +14,7 @@ dependencies = [
     "redis>=6.1.1",
     "logmiddleware>=0.0.4",
     "fastapi-cache2>=0.2.2",
+    "logging-tree>=1.10",
 ]
 
 [project.optional-dependencies]

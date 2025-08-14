@@ -8,5 +8,15 @@ services:
       - redis_data:/data
     command: redis-server --appendonly yes
 
+
+  mongo:
+    container_name: mongo
+    image: dh-mirror.gitverse.ru/mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
 volumes:
   redis_data:
+  mongodb_data:
