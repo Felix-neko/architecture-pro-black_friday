@@ -90,7 +90,6 @@ PyObjectId = Annotated[str, BeforeValidator(str)]
 #     await client.admin.command("enableSharding", DATABASE_NAME)
 
 
-
 @app.on_event("startup")
 async def startup():
     if REDIS_URL:
