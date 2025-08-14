@@ -42,12 +42,16 @@ spec:
               echo "All Redis pods are ready!"
       containers:
       - name: pymongo-api
-        image: ghcr.io/felix-neko/pymongo_api:sha-85dc348
+        image: ghcr.io/felix-neko/pymongo_api:sha-f7427e8
         ports:
         - containerPort: 8080
         env:
+        - name: REDIS_CLUSTER_MODE
+          value: "false"
         - name: REDIS_URL
-          value: "redis://redis-leader-0-nodeport.redis.svc.cluster.local:6379"
+          value: "redis-cluster-0-nodeport.redis.svc.cluster.local:6379"
+        - name: REDIS_PASSWORD
+          value: "ZL7YNzIutU"
         - name: MONGODB_DATABASE_NAME
           value: "test_db"
         - name: MONGODB_URL

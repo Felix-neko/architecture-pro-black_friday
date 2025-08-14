@@ -7,6 +7,9 @@ import redis.asyncio as redis
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger()
 
+redis_logger = logging.getLogger("redis")
+redis_logger.setLevel(logging.DEBUG)
+
 
 async def test_redis_operations():
     # Basic redis operations testing...

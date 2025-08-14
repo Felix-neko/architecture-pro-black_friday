@@ -62,6 +62,34 @@ db = client[DATABASE_NAME]
 # It will be represented as a `str` on the model so that it can be serialized to JSON.
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
+# @app.on_event("startup")
+# async def startup():
+#     if REDIS_URL:
+#         if REDIS_CLUSTER_MODE:
+#             cluster_nodes = [ClusterNode(*elm.split(":")) for elm in REDIS_URL.split(",")]
+#             logger.info(f"🔗 Connecting to Redis cluster with nodes: {cluster_nodes}")
+#             redis = aioredis.RedisCluster(startup_nodes=cluster_nodes, encoding="utf8", password=REDIS_PASSWORD)
+#         else:
+#             redis = aioredis.from_url(REDIS_URL, encoding="utf8", password=REDIS_PASSWORD)
+#
+#         # Проверим, является ли это кластером
+#         try:
+#             # Попробуем выполнить команду, специфичную для кластера
+#             cluster_info = await redis.cluster_info()
+#             logger.warning("🚨 Redis cluster detected! FastAPICache will be disabled due to transaction limitations.")
+#             logger.info(f"📊 Cluster info: {cluster_info}")
+#             # Не инициализируем FastAPICache для кластера
+#             await client.admin.command("enableSharding", DATABASE_NAME)
+#             return
+#         except Exception as e:
+#             logger.info(f"✅ Regular Redis instance detected: {e}")
+#             # Это обычный Redis, можно использовать FastAPICache
+#
+#         FastAPICache.init(RedisBackend(redis), prefix="api:cache")
+#         logger.info("🚀 FastAPICache initialized successfully")
+#     await client.admin.command("enableSharding", DATABASE_NAME)
+
+
 
 @app.on_event("startup")
 async def startup():

@@ -1,0 +1,107 @@
+---
+# NodePort service for Redis cluster pod 0
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster-0-nodeport
+  namespace: redis
+spec:
+  type: NodePort
+  ports:
+  - port: 6379
+    targetPort: 6379
+    nodePort: 30200
+    protocol: TCP
+    name: redis
+  selector:
+    statefulset.kubernetes.io/pod-name: my-redis-redis-cluster-0
+
+---
+# NodePort service for Redis cluster pod 1
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster-1-nodeport
+  namespace: redis
+spec:
+  type: NodePort
+  ports:
+  - port: 6379
+    targetPort: 6379
+    nodePort: 30201
+    protocol: TCP
+    name: redis
+  selector:
+    statefulset.kubernetes.io/pod-name: my-redis-redis-cluster-1
+
+---
+# NodePort service for Redis cluster pod 2
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster-2-nodeport
+  namespace: redis
+spec:
+  type: NodePort
+  ports:
+  - port: 6379
+    targetPort: 6379
+    nodePort: 30202
+    protocol: TCP
+    name: redis
+  selector:
+    statefulset.kubernetes.io/pod-name: my-redis-redis-cluster-2
+
+---
+# NodePort service for Redis cluster pod 3
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster-3-nodeport
+  namespace: redis
+spec:
+  type: NodePort
+  ports:
+  - port: 6379
+    targetPort: 6379
+    nodePort: 30203
+    protocol: TCP
+    name: redis
+  selector:
+    statefulset.kubernetes.io/pod-name: my-redis-redis-cluster-3
+
+---
+# NodePort service for Redis cluster pod 4
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster-4-nodeport
+  namespace: redis
+spec:
+  type: NodePort
+  ports:
+  - port: 6379
+    targetPort: 6379
+    nodePort: 30204
+    protocol: TCP
+    name: redis
+  selector:
+    statefulset.kubernetes.io/pod-name: my-redis-redis-cluster-4
+
+---
+# NodePort service for Redis cluster pod 5
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster-5-nodeport
+  namespace: redis
+spec:
+  type: NodePort
+  ports:
+  - port: 6379
+    targetPort: 6379
+    nodePort: 30205
+    protocol: TCP
+    name: redis
+  selector:
+    statefulset.kubernetes.io/pod-name: my-redis-redis-cluster-5
