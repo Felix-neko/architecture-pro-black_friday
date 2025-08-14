@@ -1,3 +1,12 @@
+"""
+Используем переменные окружения:
+MONGODB_URL: URL для подключения к MongoDB, например: mongodb://localhost:27017
+MONGODB_DATABASE_NAME: Имя базы данных в MongoDB
+REDIS_CLUSTER_MODE: Флаг, указывающий на использование Redis в кластерном режиме
+REDIS_URL: URL для подключения к Redis, например: redis://localhost:6379 (если не используется кластерный режим)
+    или 173.17.0.2:6379,173.17.0.3:6379 (если используется кластерный режим)
+"""
+
 import json
 import logging
 import logging.config
@@ -16,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from pydantic.functional_validators import BeforeValidator
 from pymongo import errors
 from redis import asyncio as aioredis
+from redis.cluster import ClusterNode
 from typing_extensions import Annotated
 
 # Configure JSON logging
@@ -28,6 +38,7 @@ app.add_middleware(RouterLoggingMiddleware, logger=logger)
 DATABASE_URL = os.environ["MONGODB_URL"]
 DATABASE_NAME = os.environ["MONGODB_DATABASE_NAME"]
 REDIS_URL = os.getenv("REDIS_URL", None)
+REDIS_CLUSTER_MODE = bool(os.getenv("REDIS_CLUSTER_MODE", False))
 
 
 def nocache(*args, **kwargs):
@@ -54,7 +65,12 @@ PyObjectId = Annotated[str, BeforeValidator(str)]
 @app.on_event("startup")
 async def startup():
     if REDIS_URL:
-        redis = aioredis.from_url(REDIS_URL, encoding="utf8")
+        if REDIS_CLUSTER_MODE:
+            cluster_nodes = [ClusterNode(*elm.split(":")) for elm in REDIS_URL.split(",")]
+            redis = aioredis.RedisCluster(startup_nodes=cluster_nodes, encoding="utf8")
+        else:
+            redis = aioredis.from_url(REDIS_URL, encoding="utf8")
+
         FastAPICache.init(RedisBackend(redis), prefix="api:cache")
     await client.admin.command("enableSharding", DATABASE_NAME)
 
