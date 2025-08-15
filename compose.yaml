@@ -8,6 +8,7 @@ services:
       - 27017:27017
 
   pymongo_api:
+    restart: "no"  # или on-failure
     container_name: pymongo_api
     build: 
       context: pymongo_api
