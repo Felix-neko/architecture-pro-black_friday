@@ -1,4 +1,4 @@
-FROM python:3.12.1-slim
+FROM python:3.12.3-slim
 WORKDIR /app
 EXPOSE 8080
 COPY requirements.txt ./
@@ -6,5 +6,4 @@ COPY requirements.txt ./
 RUN pip install --no-cache --no-cache-dir -r requirements.txt
 # Копирование кода приложения
 COPY app.py /app/
-ENTRYPOINT ["uvicorn"]
-CMD ["app:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]
