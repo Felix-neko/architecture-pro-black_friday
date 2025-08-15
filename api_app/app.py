@@ -51,8 +51,16 @@ def nocache(*args, **kwargs):
 
 if REDIS_URL:
     cache = cache
+    if REDIS_CLUSTER_MODE:
+        cluster_nodes = [ClusterNode(*elm.split(":")) for elm in REDIS_URL.split(",")]
+        redis = aioredis.RedisCluster(startup_nodes=cluster_nodes, encoding="utf8", password=REDIS_PASSWORD)
+
+    else:
+        raise Exception("Redis cluster mode needed!")
+        # redis = aioredis.from_url(REDIS_URL, encoding="utf8", password=REDIS_PASSWORD)
 else:
     cache = nocache
+    redis = None
 
 
 client = motor.motor_asyncio.AsyncIOMotorClient(DATABASE_URL)
@@ -92,15 +100,10 @@ PyObjectId = Annotated[str, BeforeValidator(str)]
 
 @app.on_event("startup")
 async def startup():
-    if REDIS_URL:
-        if REDIS_CLUSTER_MODE:
-            cluster_nodes = [ClusterNode(*elm.split(":")) for elm in REDIS_URL.split(",")]
-            redis = aioredis.RedisCluster(startup_nodes=cluster_nodes, encoding="utf8", password=REDIS_PASSWORD)
-        else:
-            raise Exception("Redis cluster mode needed!")
-            # redis = aioredis.from_url(REDIS_URL, encoding="utf8", password=REDIS_PASSWORD)
 
-        FastAPICache.init(RedisBackend(redis), prefix="api:cache")
+    backend = RedisBackend(redis)
+    print(f"Backend is cluster: {backend.is_cluster}")
+    FastAPICache.init(backend, prefix="api:cache")
     await client.admin.command("enableSharding", DATABASE_NAME)
 
 
@@ -124,6 +127,63 @@ class UserCollection(BaseModel):
 
 @app.get("/")
 async def root():
+
+    try:
+        # Test 1: Get cluster info using CLUSTER INFO command
+        cluster_info = await redis.cluster_info()
+        print("\n=== Cluster Info ===")
+        for key, value in cluster_info.items():
+            print(f"{key}: {value}")
+
+        # Test 2: Get cluster nodes
+        nodes_info = await redis.cluster_nodes()
+        print("\n=== Cluster Nodes ===")
+        print(nodes_info)
+
+        # Test 3: Check key slots
+        key1 = "test_tx_1"
+        key2 = "test_tx_2"
+        slot1 = await redis.cluster_keyslot(key1)
+        slot2 = await redis.cluster_keyslot(key2)
+        print("\n=== Key Slots ===")
+        print(f"Key '{key1}' hashes to slot: {slot1}")
+        print(f"Key '{key2}' hashes to slot: {slot2}")
+        print(f"Same slot: {slot1 == slot2}")
+
+        # Test 4: Try the transaction
+        print("\n=== Starting Transaction ===")
+        print("Attempting to set two keys in a transaction...")
+
+        try:
+            async with redis.pipeline(transaction=True) as pipe:
+                await pipe.set(key1, "value1")
+                await pipe.set(key2, "value2")
+                result = await pipe.execute()
+                print(f"Transaction result: {result}")
+
+            print("\n=== Transaction Succeeded (unexpected in cluster mode!) ===")
+
+            # Verify the keys were set
+            val1 = await redis.get(key1)
+            val2 = await redis.get(key2)
+            print("\n=== Verify Values ===")
+            print(f"{key1}: {val1}")
+            print(f"{key2}: {val2}")
+
+        except Exception as tx_error:
+            print("\n=== Transaction Failed ===")
+            print(f"Error during transaction: {str(tx_error)}")
+            print(f"Error type: {type(tx_error).__name__}")
+
+    except Exception as e:
+        print("\n=== Error Getting Cluster Info ===")
+        print(f"Error: {str(e)}")
+        print(f"Error type: {type(e).__name__}")
+        if hasattr(e, "__traceback__"):
+            import traceback
+
+            traceback.print_exc()
+
     collection_names = await db.list_collection_names()
     collections = {}
     for collection_name in collection_names:
