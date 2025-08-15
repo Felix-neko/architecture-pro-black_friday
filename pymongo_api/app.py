@@ -200,17 +200,17 @@ async def show_user(collection_name: str, name: str):
     raise HTTPException(status_code=404, detail=f"User {name} not found")
 
 
+USE_HASH_SHARDING = True
+N_TEST_DOCS = 1000
+
+
 @app.post("/{collection_name}/create")
-async def create_collection(
-    collection_name: Annotated[str, Path(description="Имя коллекции")],
-    hash_shard_by_id: Annotated[bool, Path(description="Использовать ли хэш-шардинг")] = True,
-    n_test_docs: Annotated[
-        Optional[int], Path(description="Сколько тестовых документов заливать в базу при создании")
-    ] = 1000,
-):
+async def create_collection(collection_name: Annotated[str, Path(description="Имя коллекции")]):
     """
     Создать новую тестовую коллекцию (удалить старую, если нужно).
     Включить хэш-шардинг по ID и заполнить её тестовыми данными.
+
+    На производительность вставки цинично забиваем, всё равно я нормлаьно в MongoDB не умею ))
     """
     collection_list = await db.list_collection_names()
     if collection_name in collection_list:
@@ -220,7 +220,7 @@ async def create_collection(
     await db.create_collection(collection_name)
     logger.info(f"Created collection '{collection_name}'")
 
-    if hash_shard_by_id:
+    if USE_HASH_SHARDING:
         try:
             await client.admin.command(
                 {"shardCollection": f"{DATABASE_NAME}.{collection_name}", "key": {"_id": "hashed"}}
@@ -229,11 +229,11 @@ async def create_collection(
         except errors.OperationFailure as ex:
             logger.error(f"Failed to enable hashed sharding on '{collection_name}': {ex}")
 
-    if n_test_docs is not None:
+    if N_TEST_DOCS is not None:
         collection = db[collection_name]
-        documents = [{"age": i, "name": f"ly{i}"} for i in range(n_test_docs)]
+        documents = [{"age": i, "name": f"ly{i}"} for i in range(N_TEST_DOCS)]
         await collection.insert_many(documents)
-        logger.info(f"Inserted {n_test_docs} documents into '{collection_name}'")
+        logger.info(f"Inserted {N_TEST_DOCS} documents into '{collection_name}'")
 
 
 @app.get("/{collection_name}/stats")
