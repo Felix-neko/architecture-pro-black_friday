@@ -6,6 +6,8 @@ auth:
 # number of shards
 shards: 3
 
+resourcesPreset: large
+
 # data nodes (each shard has a dataNode StatefulSet)
 shardsvr:
   dataNode:
