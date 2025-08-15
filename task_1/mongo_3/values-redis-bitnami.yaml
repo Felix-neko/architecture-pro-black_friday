@@ -2,3 +2,4 @@ cluster:
   nodes: 6
   replicas: 0
 
+password: "redis-dev-password"

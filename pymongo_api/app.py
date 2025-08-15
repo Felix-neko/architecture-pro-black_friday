@@ -7,12 +7,16 @@ REDIS_URL: URL для подключения к Redis, например: redis:/
     или 173.17.0.2:6379,173.17.0.3:6379 (если используется кластерный режим)
 """
 
+print("=== Starting application ===")
+
 import json
 import logging
 import logging.config
 import os
 import time
 from typing import List, Optional, Dict, Any
+
+print("=== 1 ===")
 
 import motor.motor_asyncio
 from bson import json_util
@@ -28,6 +32,8 @@ from redis import asyncio as aioredis
 from redis.cluster import ClusterNode
 from typing_extensions import Annotated
 
+print("=== 2 ===")
+
 # Configure JSON logging
 logging.config.dictConfig(logging_config)
 logger = logging.getLogger(__name__)
@@ -36,10 +42,17 @@ app = FastAPI()
 app.add_middleware(RouterLoggingMiddleware, logger=logger)
 
 DATABASE_URL = os.environ["MONGODB_URL"]
+print(DATABASE_URL)
 DATABASE_NAME = os.environ["MONGODB_DATABASE_NAME"]
+print(DATABASE_NAME)
 REDIS_URL = os.getenv("REDIS_URL", None)
+print(REDIS_URL)
 REDIS_CLUSTER_MODE = bool(os.getenv("REDIS_CLUSTER_MODE", False))
+print(REDIS_CLUSTER_MODE)
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
+print(REDIS_PASSWORD)
+
+print("=== 3 ===")
 
 
 def nocache(*args, **kwargs):
@@ -62,9 +75,11 @@ else:
     cache = nocache
     redis = None
 
-
+print("=== 4 ===")
 client = motor.motor_asyncio.AsyncIOMotorClient(DATABASE_URL)
 db = client[DATABASE_NAME]
+
+print("=== 5 ===")
 
 # Represents an ObjectId field in the database.
 # It will be represented as a `str` on the model so that it can be serialized to JSON.
@@ -338,4 +353,5 @@ async def create_user(collection_name: str, user: UserModel = Body(...)):
 if __name__ == "__main__":
     import uvicorn
 
+    print("=== 6 ===")
     uvicorn.run(app, host="0.0.0.0", port=8080, log_level="debug")

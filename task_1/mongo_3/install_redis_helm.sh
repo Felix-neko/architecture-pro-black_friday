@@ -9,7 +9,7 @@ helm repo update
 kubectl create namespace redis
 
 helm install my-redis bitnami/redis-cluster --namespace redis --values $BASEDIR/values-redis-bitnami.yaml
-
+kubectl apply -f $BASEDIR/redis-individual-nodeports-bitnami.yaml -n redis
 
 #helm upgrade redis-operator ot-helm/redis-operator --install --namespace redis
 

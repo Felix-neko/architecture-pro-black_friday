@@ -16,9 +16,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Build the Docker image for app.py
-      run: docker build pymongo_api --tag pymongo_api:$(date +%s)
-
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5

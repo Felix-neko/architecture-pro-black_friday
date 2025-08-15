@@ -17,41 +17,41 @@ spec:
       labels:
         app: pymongo-api
     spec:
-      initContainers:
-        -   name: wait-for-mongodb-services
-            image: bitnami/kubectl:latest
-            command: [ 'sh', '-c' ]
-            args:
-              - |
-                echo "Waiting for MongoDB services to be ready..."
-                kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=mongos -n mongo --timeout=300s
-                echo "MongoDB mongos pods are ready!"
-        - name: wait-for-redis
-          image: bitnami/kubectl:latest
-          command: ['sh', '-c']
-          args:
-            - |
-              echo "Waiting for Redis leader pods to be ready..."
-              kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=my-redis,role=leader -n redis --timeout=300s
-              echo "Redis leader pods are ready!"
-              
-              echo "Waiting for Redis follower pods to be ready..."
-              kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=my-redis,role=follower -n redis --timeout=300s
-              echo "Redis follower pods are ready!"
-              
-              echo "All Redis pods are ready!"
+#      initContainers:
+#        -   name: wait-for-mongodb-services
+#            image: bitnami/kubectl:latest
+#            command: [ 'sh', '-c' ]
+#            args:
+#              - |
+#                echo "Waiting for MongoDB services to be ready..."
+#                kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=mongos -n mongo --timeout=300s
+#                echo "MongoDB mongos pods are ready!"
+#        - name: wait-for-redis
+#          image: bitnami/kubectl:latest
+#          command: ['sh', '-c']
+#          args:
+#            - |
+#              echo "Waiting for Redis leader pods to be ready..."
+#              kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=my-redis,role=leader -n redis --timeout=300s
+#              echo "Redis leader pods are ready!"
+#
+#              echo "Waiting for Redis follower pods to be ready..."
+#              kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=my-redis,role=follower -n redis --timeout=300s
+#              echo "Redis follower pods are ready!"
+#
+#              echo "All Redis pods are ready!"
       containers:
       - name: pymongo-api
-        image: ghcr.io/felix-neko/pymongo_api:sha-c1a5911
+        image: ghcr.io/felix-neko/pymongo_api:sha-aea38bf
         ports:
         - containerPort: 8080
         env:
         - name: REDIS_CLUSTER_MODE
-          value: "false"
+          value: "true"
         - name: REDIS_URL
-          value: "redis://10.244.0.38:6379"
+          value: "redis-cluster-0-nodeport.redis.svc.cluster.local:6379,redis-cluster-1-nodeport.redis.svc.cluster.local:6379,redis-cluster-2-nodeport.redis.svc.cluster.local:6379"
         - name: REDIS_PASSWORD
-          value: "ZL7YNzIutU"
+          value: "redis-dev-password"
         - name: MONGODB_DATABASE_NAME
           value: "test_db"
         - name: MONGODB_URL
