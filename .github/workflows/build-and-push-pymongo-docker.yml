@@ -17,7 +17,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Build the Docker image for app.py
-      run: docker build api_app --tag pymongo_api:$(date +%s)
+      run: docker build pymongo_api --tag pymongo_api:$(date +%s)
 
     - name: Extract metadata
       id: meta
@@ -40,7 +40,7 @@ jobs:
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
-        context: api_app
+        context: pymongo_api
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}

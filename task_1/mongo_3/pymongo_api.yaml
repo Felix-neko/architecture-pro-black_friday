@@ -42,7 +42,7 @@ spec:
               echo "All Redis pods are ready!"
       containers:
       - name: pymongo-api
-        image: ghcr.io/felix-neko/pymongo_api:sha-4b5c6ad
+        image: ghcr.io/felix-neko/pymongo_api:sha-c1a5911
         ports:
         - containerPort: 8080
         env:

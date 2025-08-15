@@ -137,6 +137,11 @@ spec:
     nodePort: 32222
     protocol: TCP
     name: ssh
+  - port: 8080
+    targetPort: 8080
+    nodePort: 32080
+    protocol: TCP
+    name: http
   selector:
     app: anal-probe
 
