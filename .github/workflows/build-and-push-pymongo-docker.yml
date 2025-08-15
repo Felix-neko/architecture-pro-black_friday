@@ -2,9 +2,9 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ "main", "sandboxing" ]
+    branches: [ "main", "sandboxing", "gewalting" ]
   pull_request:
-    branches: [ "main", "sandboxing" ]
+    branches: [ "main", "sandboxing", "gewalting" ]
 
 jobs:
 
