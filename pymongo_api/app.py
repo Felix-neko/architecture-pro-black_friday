@@ -1,26 +1,13 @@
-"""
-Используем переменные окружения:
-MONGODB_URL: URL для подключения к MongoDB, например: mongodb://localhost:27017
-MONGODB_DATABASE_NAME: Имя базы данных в MongoDB
-REDIS_CLUSTER_MODE: Флаг, указывающий на использование Redis в кластерном режиме
-REDIS_URL: URL для подключения к Redis, например: redis://localhost:6379 (если не используется кластерный режим)
-    или 173.17.0.2:6379,173.17.0.3:6379 (если используется кластерный режим)
-"""
-
-print("=== Starting application ===")
-
 import json
 import logging
-import logging.config
+import logging.config  # Add this line
 import os
 import time
-from typing import List, Optional, Dict, Any
-
-print("=== 1 ===")
+from typing import List, Optional
 
 import motor.motor_asyncio
-from bson import json_util
-from fastapi import Body, FastAPI, HTTPException, status, Path
+from bson import ObjectId
+from fastapi import Body, FastAPI, HTTPException, status
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 from fastapi_cache.decorator import cache
@@ -29,10 +16,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from pydantic.functional_validators import BeforeValidator
 from pymongo import errors
 from redis import asyncio as aioredis
-from redis.cluster import ClusterNode
 from typing_extensions import Annotated
-
-print("=== 2 ===")
 
 # Configure JSON logging
 logging.config.dictConfig(logging_config)
@@ -42,17 +26,9 @@ app = FastAPI()
 app.add_middleware(RouterLoggingMiddleware, logger=logger)
 
 DATABASE_URL = os.environ["MONGODB_URL"]
-print(DATABASE_URL)
 DATABASE_NAME = os.environ["MONGODB_DATABASE_NAME"]
-print(DATABASE_NAME)
-REDIS_URL = os.getenv("REDIS_URL", None)
-print(REDIS_URL)
-REDIS_CLUSTER_MODE = bool(os.getenv("REDIS_CLUSTER_MODE", False))
-print(REDIS_CLUSTER_MODE)
-REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
-print(REDIS_PASSWORD)
 
-print("=== 3 ===")
+REDIS_URL = os.getenv("REDIS_URL", None)
 
 
 def nocache(*args, **kwargs):
@@ -64,62 +40,23 @@ def nocache(*args, **kwargs):
 
 if REDIS_URL:
     cache = cache
-    if REDIS_CLUSTER_MODE:
-        cluster_nodes = [ClusterNode(*elm.split(":")) for elm in REDIS_URL.split(",")]
-        redis = aioredis.RedisCluster(startup_nodes=cluster_nodes, encoding="utf8", password=REDIS_PASSWORD)
-
-    else:
-        raise Exception("Redis cluster mode needed!")
-        # redis = aioredis.from_url(REDIS_URL, encoding="utf8", password=REDIS_PASSWORD)
 else:
     cache = nocache
-    redis = None
 
-print("=== 4 ===")
+
 client = motor.motor_asyncio.AsyncIOMotorClient(DATABASE_URL)
 db = client[DATABASE_NAME]
-
-print("=== 5 ===")
 
 # Represents an ObjectId field in the database.
 # It will be represented as a `str` on the model so that it can be serialized to JSON.
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
-# @app.on_event("startup")
-# async def startup():
-#     if REDIS_URL:
-#         if REDIS_CLUSTER_MODE:
-#             cluster_nodes = [ClusterNode(*elm.split(":")) for elm in REDIS_URL.split(",")]
-#             logger.info(f"🔗 Connecting to Redis cluster with nodes: {cluster_nodes}")
-#             redis = aioredis.RedisCluster(startup_nodes=cluster_nodes, encoding="utf8", password=REDIS_PASSWORD)
-#         else:
-#             redis = aioredis.from_url(REDIS_URL, encoding="utf8", password=REDIS_PASSWORD)
-#
-#         # Проверим, является ли это кластером
-#         try:
-#             # Попробуем выполнить команду, специфичную для кластера
-#             cluster_info = await redis.cluster_info()
-#             logger.warning("🚨 Redis cluster detected! FastAPICache will be disabled due to transaction limitations.")
-#             logger.info(f"📊 Cluster info: {cluster_info}")
-#             # Не инициализируем FastAPICache для кластера
-#             await client.admin.command("enableSharding", DATABASE_NAME)
-#             return
-#         except Exception as e:
-#             logger.info(f"✅ Regular Redis instance detected: {e}")
-#             # Это обычный Redis, можно использовать FastAPICache
-#
-#         FastAPICache.init(RedisBackend(redis), prefix="api:cache")
-#         logger.info("🚀 FastAPICache initialized successfully")
-#     await client.admin.command("enableSharding", DATABASE_NAME)
-
 
 @app.on_event("startup")
 async def startup():
-
-    backend = RedisBackend(redis)
-    print(f"Backend is cluster: {backend.is_cluster}")
-    FastAPICache.init(backend, prefix="api:cache")
-    await client.admin.command("enableSharding", DATABASE_NAME)
+    if REDIS_URL:
+        redis = aioredis.from_url(REDIS_URL, encoding="utf8", decode_responses=True)
+        FastAPICache.init(RedisBackend(redis), prefix="api:cache")
 
 
 class UserModel(BaseModel):
@@ -142,63 +79,6 @@ class UserCollection(BaseModel):
 
 @app.get("/")
 async def root():
-
-    try:
-        # Test 1: Get cluster info using CLUSTER INFO command
-        cluster_info = await redis.cluster_info()
-        print("\n=== Cluster Info ===")
-        for key, value in cluster_info.items():
-            print(f"{key}: {value}")
-
-        # Test 2: Get cluster nodes
-        nodes_info = await redis.cluster_nodes()
-        print("\n=== Cluster Nodes ===")
-        print(nodes_info)
-
-        # Test 3: Check key slots
-        key1 = "test_tx_1"
-        key2 = "test_tx_2"
-        slot1 = await redis.cluster_keyslot(key1)
-        slot2 = await redis.cluster_keyslot(key2)
-        print("\n=== Key Slots ===")
-        print(f"Key '{key1}' hashes to slot: {slot1}")
-        print(f"Key '{key2}' hashes to slot: {slot2}")
-        print(f"Same slot: {slot1 == slot2}")
-
-        # Test 4: Try the transaction
-        print("\n=== Starting Transaction ===")
-        print("Attempting to set two keys in a transaction...")
-
-        try:
-            async with redis.pipeline(transaction=True) as pipe:
-                await pipe.set(key1, "value1")
-                await pipe.set(key2, "value2")
-                result = await pipe.execute()
-                print(f"Transaction result: {result}")
-
-            print("\n=== Transaction Succeeded (unexpected in cluster mode!) ===")
-
-            # Verify the keys were set
-            val1 = await redis.get(key1)
-            val2 = await redis.get(key2)
-            print("\n=== Verify Values ===")
-            print(f"{key1}: {val1}")
-            print(f"{key2}: {val2}")
-
-        except Exception as tx_error:
-            print("\n=== Transaction Failed ===")
-            print(f"Error during transaction: {str(tx_error)}")
-            print(f"Error type: {type(tx_error).__name__}")
-
-    except Exception as e:
-        print("\n=== Error Getting Cluster Info ===")
-        print(f"Error: {str(e)}")
-        print(f"Error type: {type(e).__name__}")
-        if hasattr(e, "__traceback__"):
-            import traceback
-
-            traceback.print_exc()
-
     collection_names = await db.list_collection_names()
     collections = {}
     for collection_name in collection_names:
@@ -207,7 +87,7 @@ async def root():
     try:
         replica_status = await client.admin.command("replSetGetStatus")
         replica_status = json.dumps(replica_status, indent=2, default=str)
-    except errors.OperationFailure as ex:
+    except errors.OperationFailure:
         print(ex)
         replica_status = "No Replicas"
 
@@ -288,49 +168,6 @@ async def show_user(collection_name: str, name: str):
     raise HTTPException(status_code=404, detail=f"User {name} not found")
 
 
-@app.post("/{collection_name}/create")
-async def create_collection(
-    collection_name: Annotated[str, Path(description="Имя коллекции")],
-    hash_shard_by_id: Annotated[bool, Path(description="Использовать ли хэш-шардинг")] = True,
-    n_test_docs: Annotated[
-        Optional[int], Path(description="Сколько тестовых документов заливать в базу при создании")
-    ] = 1000,
-):
-    """
-    Создать новую тестовую коллекцию (удалить старую, если нужно).
-    Включить хэш-шардинг по ID и заполнить её тестовыми данными.
-    """
-    collection_list = await db.list_collection_names()
-    if collection_name in collection_list:
-        await db.drop_collection(collection_name)
-        logger.info(f"Droped collection '{collection_name}'")
-
-    await db.create_collection(collection_name)
-    logger.info(f"Created collection '{collection_name}'")
-
-    if hash_shard_by_id:
-        await client.admin.command({"shardCollection": f"{DATABASE_NAME}.{collection_name}", "key": {"_id": "hashed"}})
-        logger.info(f"Enabled hashed sharding on '{collection_name}'")
-
-    if n_test_docs is not None:
-        collection = db[collection_name]
-        documents = [{"age": i, "name": f"ly{i}"} for i in range(n_test_docs)]
-        await collection.insert_many(documents)
-        logger.info(f"Inserted {n_test_docs} documents into '{collection_name}'")
-
-
-@app.get("/{collection_name}/stats")
-async def get_collection_stats(collection_name: Annotated[str, Path(description="Имя коллекции")]) -> Dict[str, Any]:
-    """
-    Получить статистику по коллекции
-    """
-    collection_list = await db.list_collection_names()
-    if collection_name not in collection_list:
-        raise HTTPException(status_code=404, detail=f"Collection {collection_name} not found")
-    stats = await db.command({"collStats": collection_name, "verbose": False})
-    return json.loads(json_util.dumps(stats))
-
-
 @app.post(
     "/{collection_name}/users",
     response_description="Add new user",
@@ -353,5 +190,4 @@ async def create_user(collection_name: str, user: UserModel = Body(...)):
 if __name__ == "__main__":
     import uvicorn
 
-    print("=== 6 ===")
-    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="debug")
+    uvicorn.run(app, host="0.0.0.0", port=9000)

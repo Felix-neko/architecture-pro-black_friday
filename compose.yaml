@@ -4,6 +4,8 @@ services:
     image: dh-mirror.gitverse.ru/mongo:latest
     volumes:
       - mongodb1_data_container:/data/db
+    ports:
+      - 27017:27017
 
   pymongo_api:
     container_name: pymongo_api
