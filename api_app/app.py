@@ -97,7 +97,8 @@ async def startup():
             cluster_nodes = [ClusterNode(*elm.split(":")) for elm in REDIS_URL.split(",")]
             redis = aioredis.RedisCluster(startup_nodes=cluster_nodes, encoding="utf8", password=REDIS_PASSWORD)
         else:
-            redis = aioredis.from_url(REDIS_URL, encoding="utf8", password=REDIS_PASSWORD)
+            raise Exception("Redis cluster mode needed!")
+            # redis = aioredis.from_url(REDIS_URL, encoding="utf8", password=REDIS_PASSWORD)
 
         FastAPICache.init(RedisBackend(redis), prefix="api:cache")
     await client.admin.command("enableSharding", DATABASE_NAME)
