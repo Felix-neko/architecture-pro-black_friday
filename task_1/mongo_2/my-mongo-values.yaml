@@ -3,52 +3,5 @@ auth:
   enabled: true
   rootPassword: "rootpass"
   replicaSetKey: "replkey"
-# number of shards
-shards: 3
 
 resourcesPreset: large
-
-# data nodes (each shard has a dataNode StatefulSet)
-shardsvr:
-  dataNode:
-    replicaCount: 2
-    persistence:
-      enabled: false   # на minikube удобно false; для прод включи и дай StorageClass/size
-    affinity:
-      podAntiAffinity:
-        preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 50
-            podAffinityTerm:
-              labelSelector:
-                matchLabels:
-                  app.kubernetes.io/name: mongodb-sharded
-              topologyKey: "kubernetes.io/hostname"
-
-# config servers
-configsvr:
-  replicaCount: 3
-  persistence:
-    enabled: false
-  affinity:
-    podAntiAffinity:
-      preferredDuringSchedulingIgnoredDuringExecution:
-        - weight: 50
-          podAffinityTerm:
-            labelSelector:
-              matchLabels:
-                app.kubernetes.io/name: mongodb-sharded
-            topologyKey: "kubernetes.io/hostname"
-
-# mongos (routers)
-mongos:
-  replicaCount: 2
-  useStatefulSet: true
-  affinity:
-    podAntiAffinity:
-      preferredDuringSchedulingIgnoredDuringExecution:
-        - weight: 50
-          podAffinityTerm:
-            labelSelector:
-              matchLabels:
-                app.kubernetes.io/name: mongodb-sharded
-            topologyKey: "kubernetes.io/hostname"

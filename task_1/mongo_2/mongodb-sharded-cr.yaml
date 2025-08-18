@@ -1,0 +1,162 @@
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: mongodb-cluster
+spec:
+  # Основные настройки
+  crVersion: 1.20.1
+  image: percona/percona-server-mongodb:7.0.15-10
+  imagePullPolicy: Always
+  allowUnsafeConfigurations: false
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    versionServiceEndpoint: https://check.percona.com
+    apply: disabled
+
+  # Управление secrets
+  secrets:
+    users: mongodb-cluster-secrets
+
+  # Настройки шардинга
+  sharding:
+    enabled: true
+
+    # Config серверы (3 экземпляра для кворума)
+    configsvrReplSet:
+      size: 3
+      configuration: |
+        operationProfiling:
+          mode: slowOp
+          slowOpThresholdMs: 100
+        systemLog:
+          verbosity: 1
+      expose:
+        enabled: false
+        type: ClusterIP
+      resources:
+        limits:
+          cpu: "300m"
+          memory: "0.5G"
+        requests:
+          cpu: "300m"
+          memory: "0.5G"
+      volumeSpec:
+        persistentVolumeClaim:
+          resources:
+            requests:
+              storage: 3Gi
+      affinity:
+        antiAffinityTopologyKey: "kubernetes.io/hostname"
+
+    # Mongos роутеры (2 экземпляра)
+    mongos:
+      size: 2
+      configuration: |
+        systemLog:
+          verbosity: 1
+      expose:
+        enabled: true
+        type: ClusterIP
+        # Для внешнего доступа используйте:
+        # type: LoadBalancer
+      resources:
+        limits:
+          cpu: "300m"
+          memory: "0.5G"
+        requests:
+          cpu: "300m"
+          memory: "0.5G"
+      affinity:
+        antiAffinityTopologyKey: "kubernetes.io/hostname"
+
+  # Определяем шарды (3 шарда по 2 реплики)
+  replsets:
+
+  # Шард 1
+  - name: rs0
+    size: 2
+    configuration: |
+      operationProfiling:
+        mode: slowOp
+        slowOpThresholdMs: 100
+      systemLog:
+        verbosity: 1
+    expose:
+      enabled: false
+      type: ClusterIP
+    resources:
+      limits:
+        cpu: "1000m"
+        memory: "2G"
+      requests:
+        cpu: "500m"
+        memory: "1G"
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 10Gi
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+
+  # Шард 2
+  - name: rs1
+    size: 2
+    configuration: |
+      operationProfiling:
+        mode: slowOp
+        slowOpThresholdMs: 100
+      systemLog:
+        verbosity: 1
+    expose:
+      enabled: false
+      type: ClusterIP
+    resources:
+      limits:
+        cpu: "1000m"
+        memory: "2G"
+      requests:
+        cpu: "500m"
+        memory: "1G"
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 10Gi
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+
+  # Шард 3
+  - name: rs2
+    size: 2
+    configuration: |
+      operationProfiling:
+        mode: slowOp
+        slowOpThresholdMs: 100
+      systemLog:
+        verbosity: 1
+    expose:
+      enabled: false
+      type: ClusterIP
+    resources:
+      limits:
+        cpu: "1000m"
+        memory: "2G"
+      requests:
+        cpu: "500m"
+        memory: "1G"
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 10Gi
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+
+  # Настройки PMM (опционально)
+  pmm:
+    enabled: false
+
+  # Бэкапы (опционально)
+  backup:
+    enabled: false
