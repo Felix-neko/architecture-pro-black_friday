@@ -1,13 +1,35 @@
+"""
+Шардируемые коллекции
+
+Product -- по _id
+Order → client_id (hashed) - заказы распределяются по пользователям
+Cart → client_id (hashed) - корзины следуют за пользователями
+
+ProductOrder → order_id (hashed)
+
+Нешардируемые:
+
+ProductStock - малый объем, частые обновления
+Warehouse, GeoPoint - справочники
+
+"""
+
 import asyncio
-import enum
 from datetime import datetime
+import enum
+import logging
 from typing import Optional, Dict, Tuple, Any
 
-import pymongo
-from pydantic import BaseModel
 
 from beanie import init_beanie, Document, Indexed, PydanticObjectId, Link
+from pydantic import BaseModel
 from pymongo import AsyncMongoClient
+import pymongo
+from pymongo.errors import OperationFailure, ConfigurationError
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class Category(BaseModel):
@@ -138,6 +160,7 @@ class Cart(Document):
             [("client_id", pymongo.HASHED)],
             [("session_id", pymongo.HASHED)],
             [("created_at", pymongo.DESCENDING)],
+            [("expires_at", pymongo.ASCENDING)],
         ]
 
 

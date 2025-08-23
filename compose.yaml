@@ -2,8 +2,8 @@ services:
   mongodb1:
     container_name: mongodb1
     image: mongo
-#    volumes:
-#      - mongodb1_data_container:/data/db
+    volumes:
+      - mongodb1_data_container:/data/db
     ports:
       - 27017:27017
 
@@ -23,10 +23,10 @@ services:
       MONGODB_DATABASE_NAME: "test_db"
 
 
-#volumes:
-#  mongodb1_data_container:
+volumes:
+  mongodb1_data_container:
 
 
-#networks:
-#  default:
-#    name: mongodb-network
+networks:
+  default:
+    name: mongodb-network

@@ -120,8 +120,8 @@ services:
       mongos:
         condition: service_healthy
     volumes:
-      - ./scripts/setup-shards.sh:/scripts/setup-shards.sh
-    command: bash /scripts/setup-shards.sh
+      - ./scripts/setup-mongos.sh:/scripts/setup-mongos.sh
+    command: bash /scripts/setup-mongos.sh
     restart: "no"
 
   # Основное веб-приложение для тестирования
