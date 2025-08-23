@@ -24,7 +24,7 @@ data:
     # Устанавливаем необходимые пакеты
     echo "Installing packages..."
     apt-get update -qq
-    apt-get install -y -qq mc python3.12 python3.12-venv python3.12-dev build-essential sudo openssh-server
+    apt-get install -y -qq mc python3.12 python3.12-venv python3.12-dev build-essential sudo
     
     # Проверяем существование пользователя alien
     if id "alien" &>/dev/null; then
@@ -41,20 +41,10 @@ data:
         echo "User alien created and added to sudo group"
     fi
     
-    # Настраиваем SSH для SCP
-    echo "Configuring SSH for SCP..."
-    mkdir -p /run/sshd
-    echo "Subsystem sftp /usr/lib/openssh/sftp-server" >> /etc/ssh/sshd_config
-    
-    # Разрешаем аутентификацию по паролю
-    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
-    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config
-    
     # Создаем структуру директорий и virtualenv
     echo "Setting up Python environment..."
     su - alien -c "
         mkdir -p /home/alien/misc/projects
-        mkdir -p /home/alien/transfer
         cd /home/alien/misc/projects
         python3.12 -m venv venv_312
         source venv_312/bin/activate
@@ -62,30 +52,13 @@ data:
         echo 'Virtual environment created successfully'
     "
     
-    # Устанавливаем правильные права на домашнюю директорию
-    chown -R alien:alien /home/alien
-    chmod 755 /home/alien
-    
     # Добавляем алиасы в .bashrc
     echo "Configuring shell aliases..."
     su - alien -c "
-        [[ $- == *i* ]] || return  # https://stackoverflow.com/questions/64790393
-        
+        echo '[[ $- == *i* ]] || return  # https://stackoverflow.com/questions/64790393' >> /home/alien/.bashrc
         echo 'alias activate_venv=\"source ~/misc/projects/venv_312/bin/activate\"' >> /home/alien/.bashrc
         echo 'echo \"Use: activate_venv to activate Python virtual environment\"' >> /home/alien/.bashrc
-        echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> /home/alien/.bashrc
     "
-    
-    # Перезапускаем SSH сервер
-    echo "Restarting SSH server..."
-    service ssh restart
-    
-    echo "SCP support has been configured successfully"
-    echo "You can now use SCP to transfer files to/from the container:"
-    echo "  # Copy file from local to container"
-    echo "  scp -P 32222 /path/to/local/file.txt alien@<node-ip>:/home/alien/transfer/"
-    echo "  # Copy file from container to local"
-    echo "  scp -P 32222 alien@<node-ip>:/path/to/remote/file.txt ."
     
     echo "Initialization completed successfully"
 

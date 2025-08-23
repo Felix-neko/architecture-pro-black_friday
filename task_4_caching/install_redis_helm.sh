@@ -8,6 +8,3 @@ kubectl create namespace redis
 
 helm install my-redis bitnami/redis-cluster --namespace redis --values $BASEDIR/values-redis-bitnami.yaml
 kubectl apply -f $BASEDIR/redis-individual-nodeports-bitnami.yaml -n redis
-
-kubectl apply -f $BASEDIR/haproxy-redis-config.yaml -n redis
-kubectl apply -f $BASEDIR/haproxy-statefulset.yaml -n redis

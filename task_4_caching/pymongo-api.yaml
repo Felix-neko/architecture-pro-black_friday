@@ -1,0 +1,151 @@
+---
+# ServiceAccount for pymongo-api
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pymongo-api-sa
+
+---
+# ClusterRole for reading pods and statefulsets
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pymongo-api-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["statefulsets"]
+  verbs: ["get", "list", "watch"]
+
+---
+# ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pymongo-api-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: pymongo-api-reader
+subjects:
+- kind: ServiceAccount
+  name: pymongo-api-sa
+  namespace: pymongo-api
+
+
+---
+# StatefulSet for pymongo-api
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: pymongo-api
+  labels:
+    app: pymongo-api
+spec:
+  serviceName: pymongo-api
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pymongo-api
+  template:
+    metadata:
+      labels:
+        app: pymongo-api
+    spec:
+      serviceAccountName: pymongo-api-sa
+      initContainers:
+        -   name: wait-for-mongodb-services
+            image: bitnami/kubectl:latest
+            command: [ 'sh', '-c' ]
+            args:
+              - |
+                echo "Waiting for MongoDB pods to be ready..."
+                
+                # Wait for all MongoDB pods to exist and be ready
+                echo "Checking MongoDB pods..."
+                while true; do
+                  # Get all MongoDB pods
+                  TOTAL_PODS=$(kubectl get pods -n mongo -l app.kubernetes.io/instance=my-mongo --no-headers 2>/dev/null | wc -l)
+                  READY_PODS=$(kubectl get pods -n mongo -l app.kubernetes.io/instance=my-mongo --no-headers 2>/dev/null | grep -c "1/1.*Running" || true)
+                  
+                  echo "MongoDB pods status: $READY_PODS/$TOTAL_PODS ready"
+                  
+                  # Check if we have expected number of pods (3 configsvr + 2 mongos + 6 shard pods = 11)
+                  if [ "$TOTAL_PODS" -ge 8 ] && [ "$READY_PODS" -eq "$TOTAL_PODS" ]; then
+                    echo "All MongoDB pods are ready!"
+                    break
+                  fi
+                  
+                  echo "Waiting for more pods to be ready... (sleeping 10s)"
+                  sleep 10
+                done
+                
+                # Additional check for mongos specifically
+                echo "Verifying mongos routers are ready..."
+                kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=mongos -n mongo --timeout=60s
+                echo "MongoDB cluster is fully ready!"
+        -   name: wait-for-redis-services
+            image: bitnami/kubectl:latest
+            command: [ 'sh', '-c' ]
+            args:
+              - |
+                echo "Waiting for Redis cluster pods to be ready..."
+                
+                # Wait for all Redis pods to exist and be ready
+                echo "Checking Redis cluster pods..."
+                while true; do
+                  # Get all Redis cluster pods
+                  TOTAL_PODS=$(kubectl get pods -n redis -l app.kubernetes.io/name=redis-cluster --no-headers 2>/dev/null | wc -l)
+                  READY_PODS=$(kubectl get pods -n redis -l app.kubernetes.io/name=redis-cluster --no-headers 2>/dev/null | grep -c "1/1.*Running" || true)
+                  
+                  echo "Redis cluster pods status: $READY_PODS/$TOTAL_PODS ready"
+                  
+                  # Check if we have expected number of pods (6 Redis cluster nodes)
+                  if [ "$TOTAL_PODS" -eq 6 ] && [ "$READY_PODS" -eq 6 ]; then
+                    echo "All Redis cluster pods are ready!"
+                    break
+                  fi
+                  
+                  echo "Waiting for more Redis pods to be ready... (sleeping 10s)"
+                  sleep 10
+                done
+                
+                # Additional check for Redis cluster status
+                echo "Verifying Redis cluster is ready..."
+                kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=redis-cluster -n redis --timeout=60s
+                echo "Redis cluster is fully ready!"
+      containers:
+      - name: pymongo-api
+        image: ghcr.io/felix-neko/pymongo_api:sha-1886de7
+        ports:
+        - containerPort: 8080
+        env:
+        - name: REDIS_CLUSTER_MODE
+          value: "true"
+        - name: REDIS_URL
+          value: "redis-cluster-0-nodeport.redis.svc.cluster.local:6379,redis-cluster-1-nodeport.redis.svc.cluster.local:6379,redis-cluster-2-nodeport.redis.svc.cluster.local:6379,redis-cluster-3-nodeport.redis.svc.cluster.local:6379,redis-cluster-4-nodeport.redis.svc.cluster.local:6379,redis-cluster-5-nodeport.redis.svc.cluster.local:6379"
+        - name: REDIS_PASSWORD
+          value: "redis-dev-password"
+        - name: MONGODB_DATABASE_NAME
+          value: "test_db"
+        - name: MONGODB_URL
+          value: "mongodb://root:rootpass@mongos-0-nodeport.mongo.svc.cluster.local:27017,mongos-1-nodeport.mongo.svc.cluster.local:27017"
+        - name: PORT
+          value: "8080"
+
+---
+# NodePort service for pymongo-api
+apiVersion: v1
+kind: Service
+metadata:
+  name: pymongo-api
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 8080
+    nodePort: 30100
+  selector:
+    app: pymongo-api

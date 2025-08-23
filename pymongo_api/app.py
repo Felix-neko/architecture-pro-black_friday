@@ -78,9 +78,19 @@ PyObjectId = Annotated[str, BeforeValidator(str)]
 
 @app.on_event("startup")
 async def startup():
-    backend = RedisBackend(redis)
-    logging.info(f"Backend is cluster: {backend.is_cluster}")
-    FastAPICache.init(backend, prefix="api:cache")
+    if redis is not None:
+        backend = RedisBackend(redis)
+        logging.info(f"Backend is cluster: {backend.is_cluster}")
+        
+        if backend.is_cluster:
+            logging.warning("Redis cluster mode detected. FastAPI cache disabled due to transaction limitations.")
+            # Don't initialize FastAPICache for cluster mode
+        else:
+            FastAPICache.init(backend, prefix="api:cache")
+            logging.info("FastAPI cache initialized with Redis backend")
+    else:
+        logging.info("No Redis configuration found. Cache disabled.")
+    
     logging.info("Enabling sharding...")
     try:
         await client.admin.command("enableSharding", DATABASE_NAME)
@@ -135,8 +145,11 @@ async def root():
             shards[shard["_id"]] = shard["host"]
 
     cache_enabled = False
-    if REDIS_URL:
-        cache_enabled = FastAPICache.get_enable()
+    if REDIS_URL and not REDIS_CLUSTER_MODE:
+        try:
+            cache_enabled = FastAPICache.get_enable()
+        except:
+            cache_enabled = False
 
     return {
         "mongo_topology_type": topology_type,
