@@ -1,7 +1,0 @@
-# my-mongo-values.yaml
-auth:
-  enabled: true
-  rootPassword: "rootpass"
-  replicaSetKey: "replkey"
-
-resourcesPreset: large

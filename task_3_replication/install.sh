@@ -8,4 +8,4 @@ helm install my-mongo -f my-mongo-values.yaml bitnami/mongodb-sharded -n mongo
 kubectl apply -f $BASEDIR/mongo-services.yaml -n mongo
 
 kubectl create namespace pymongo-api
-kubectl apply -f $BASEDIR/pymongo_api.yaml -n pymongo-api
+kubectl apply -f $BASEDIR/pymongo-api.yaml -n pymongo-api
