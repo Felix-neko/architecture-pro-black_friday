@@ -128,7 +128,7 @@ services:
   pymongo_api:
     container_name: pymongo_api
     build:
-      context: ../../api_app
+      context: ../pymongo_api
       dockerfile: Dockerfile
     depends_on:
       mongos-setup:
@@ -155,20 +155,6 @@ services:
       ME_CONFIG_MONGODB_ENABLE_ADMIN: true
       ME_CONFIG_MONGODB_SERVER: mongos
       ME_CONFIG_MONGODB_PORT: 27017
-    networks:
-      - mongodb-network
-
-  mongoku:
-    image: huggingface/mongoku
-    container_name: mongoku
-    ports:
-      - "8082:3100"
-    environment:
-      - NODE_ENV=production
-      - MONGOKU_DEFAULT_SERVER=mongodb://mongos:27017
-    depends_on:
-      mongos:
-        condition: service_healthy
     networks:
       - mongodb-network
 
