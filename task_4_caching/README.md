@@ -6,9 +6,13 @@
 Запускаем тесты:
 ```bash
 npm install newman
-npx newman run pymongo_minikube_with_cache.postman_collection.json --env-var "host=$(minikube ip)" --env-var "port=30100"
+npx newman run postman_collection.json --disable-unicode \
+  --env-var "host=$(minikube ip)" \
+  --env-var "port=30100" \
 ```
 
 Здесь всё тестируется как в предыдущем задании, только эндпоинт просмотра коллекции вызывается 2 раза:
 - в первый раз проверяем, что запрос занял > 1000 мсек, 
 - во второй раз -- что запрос занял < 100 мсек.
+
+Трижды проклятый `newman` добавляет в header'ы `cache-control: no-cache`, пришлось это мучительно отлавливать -- и отключать уже в самой тест- коллекции ))

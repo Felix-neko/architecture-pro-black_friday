@@ -124,7 +124,7 @@
 							"    }",
 							"});",
 							"",
-							"setTimeout(() => {}, 3000); ",
+							"",
 							""
 						],
 						"type": "text/javascript",
@@ -135,79 +135,10 @@
 					"listen": "prerequest",
 					"script": {
 						"exec": [
-							""
-						],
-						"type": "text/javascript",
-						"packages": {}
-					}
-				}
-			],
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "http://{{host}}:{{port}}/helloDoc1/users",
-					"protocol": "http",
-					"host": [
-						"{{host}}"
-					],
-					"port": "{{port}}",
-					"path": [
-						"helloDoc1",
-						"users"
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Load Collection (2nd time, cache hit) Copy",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"pm.test(\"Status code is 200\", function () {",
-							"    pm.response.to.have.status(200);",
-							"});",
-							"",
-							"pm.test(\"Response time is < 1000ms\", function () {",
-							"    pm.expect(pm.response.responseTime).to.be.below(100);",
-							"});",
-							"",
-							"",
-							"pm.test(\"Response contains exactly 1000 users\", function () {",
-							"    // Parse the JSON response",
-							"    const responseJson = pm.response.json();",
-							"    ",
-							"    // Check that users array exists and has exactly 1000 elements",
-							"    pm.expect(responseJson).to.have.property('users');",
-							"    pm.expect(responseJson.users).to.be.an('array');",
-							"    pm.expect(responseJson.users).to.have.lengthOf(1000);",
-							"});",
-							"",
-							"// Optional: Additional validation",
-							"pm.test(\"Users array structure validation\", function () {",
-							"    const responseJson = pm.response.json();",
-							"    ",
-							"    if (responseJson.users && responseJson.users.length > 0) {",
-							"        // Check that first user has expected properties",
-							"        const firstUser = responseJson.users[0];",
-							"        pm.expect(firstUser).to.have.property('id');",
-							"        pm.expect(firstUser).to.have.property('age');",
-							"        pm.expect(firstUser).to.have.property('name');",
-							"    }",
+							"pm.request.headers.upsert({",
+							"    key: 'cache-control',",
+							"    value: '' // пустое значение",
 							"});"
-						],
-						"type": "text/javascript",
-						"packages": {}
-					}
-				},
-				{
-					"listen": "prerequest",
-					"script": {
-						"exec": [
-							""
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -339,6 +270,103 @@
 				}
 			},
 			"response": []
+		},
+		{
+			"name": "Load Collection 2nd time",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response time is below 100ms\", function () {",
+							"    pm.expect(pm.response.responseTime).to.be.below(100);",
+							"});",
+							"",
+							"",
+							"pm.test(\"Response contains exactly 1000 users\", function () {",
+							"    // Parse the JSON response",
+							"    const responseJson = pm.response.json();",
+							"    ",
+							"    // Check that users array exists and has exactly 1000 elements",
+							"    pm.expect(responseJson).to.have.property('users');",
+							"    pm.expect(responseJson.users).to.be.an('array');",
+							"    pm.expect(responseJson.users).to.have.lengthOf(1000);",
+							"});",
+							"",
+							"// Optional: Additional validation",
+							"pm.test(\"Users array structure validation\", function () {",
+							"    const responseJson = pm.response.json();",
+							"    ",
+							"    if (responseJson.users && responseJson.users.length > 0) {",
+							"        // Check that first user has expected properties",
+							"        const firstUser = responseJson.users[0];",
+							"        pm.expect(firstUser).to.have.property('id');",
+							"        pm.expect(firstUser).to.have.property('age');",
+							"        pm.expect(firstUser).to.have.property('name');",
+							"    }",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"pm.request.headers.upsert({",
+							"    key: 'cache-control',",
+							"    value: '' // пустое значение",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://{{host}}:{{port}}/helloDoc1/users",
+					"protocol": "http",
+					"host": [
+						"{{host}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"helloDoc1",
+						"users"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					"pm.request.headers.remove('cache-control');"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
 		}
 	]
 }
