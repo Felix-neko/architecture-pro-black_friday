@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hello-world-nginx-config
+data:
+  nginx.conf: |
+    events {
+        worker_connections 1024;
+    }
+    http {
+        server {
+            listen 8080;
+            location / {
+                root /usr/share/nginx/html;
+                index index.html;
+            }
+            location /health {
+                access_log off;
+                return 200 "healthy\n";
+                add_header Content-Type text/plain;
+            }
+        }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hello-world-html
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Hello World Service</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            .container { max-width: 600px; margin: 0 auto; }
+            .info { background: #f0f0f0; padding: 20px; border-radius: 5px; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🚀 Hello World Service</h1>
+            <div class="info">
+                <p><strong>Service:</strong> StatefulSet Hello World</p>
+                <p><strong>Time:</strong> <span id="time"></span></p>
+                <p><strong>Status:</strong> ✅ Running</p>
+                <p><strong>Version:</strong> 1.0.0</p>
+            </div>
+            <p>This service is running in a Kubernetes StatefulSet and accessible through APISIX API Gateway.</p>
+        </div>
+        <script>
+            function updateTime() {
+                document.getElementById('time').textContent = new Date().toISOString();
+            }
+            updateTime();
+            setInterval(updateTime, 1000);
+        </script>
+    </body>
+    </html>
