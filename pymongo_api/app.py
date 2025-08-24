@@ -143,7 +143,7 @@ async def root():
             shards[shard["_id"]] = shard["host"]
 
     cache_enabled = False
-    if REDIS_URL and not REDIS_CLUSTER_MODE:
+    if REDIS_URL:
         try:
             cache_enabled = FastAPICache.get_enable()
         except:

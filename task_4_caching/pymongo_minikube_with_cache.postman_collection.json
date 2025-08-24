@@ -207,7 +207,7 @@
 					"listen": "prerequest",
 					"script": {
 						"exec": [
-							"setTimeout(() => {}, 5000);"
+							""
 						],
 						"type": "text/javascript",
 						"packages": {}
