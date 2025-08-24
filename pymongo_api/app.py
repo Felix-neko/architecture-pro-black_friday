@@ -81,16 +81,14 @@ async def startup():
     if redis is not None:
         backend = RedisBackend(redis)
         logging.info(f"Backend is cluster: {backend.is_cluster}")
-        
+
         if backend.is_cluster:
-            logging.warning("Redis cluster mode detected. FastAPI cache disabled due to transaction limitations.")
-            # Don't initialize FastAPICache for cluster mode
-        else:
-            FastAPICache.init(backend, prefix="api:cache")
-            logging.info("FastAPI cache initialized with Redis backend")
+            logging.warning("Redis cluster mode detected")
+        FastAPICache.init(backend, prefix="api:cache")
+        logging.info("FastAPI cache initialized with Redis backend")
     else:
         logging.info("No Redis configuration found. Cache disabled.")
-    
+
     logging.info("Enabling sharding...")
     try:
         await client.admin.command("enableSharding", DATABASE_NAME)
@@ -283,4 +281,4 @@ async def create_user(collection_name: str, user: UserModel = Body(...)):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=9000, log_level="debug")
+    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="debug")
