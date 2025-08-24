@@ -1,4 +1,33 @@
 # Задание 4. Кэширование
+Здесь мы добавим к предыдущему заданию ещё и Redis-кэширование.
+
+Ключевые файлы:
+- `values-redis-bitnami.yaml` -- параметры для helm chart'а `bitnami/redis-cluster`
+- `redis-individual-nodeports.yaml` -- NodePort-сервисы для всех хостов Redis, чтобы `pymongo_api` могло к нему подключиться.
+- `postman-collection.json` -- коллекция Postman-тестов для проверки работоспособности нашей системы.
+
+## Установка
+
+```bash
+bash setup_minikube.sh
+```
+В конце должно вывестись:
+```
+Проверяем статус minikube:
+minikube
+type: Control Plane
+host: Running
+kubelet: Running
+apiserver: Running
+kubeconfig: Configured
+```
+
+Устанавливаем MongoDB, Redis и тестовое веб-приложение `pymongo-api`:
+```bash
+bash install.sh
+kubectl wait --for=condition=Ready pod -l app=pymongo-api -n pymongo-api --timeout=600s 
+```
+Минут через 5 напечатает: `pod/pymongo-api-0 condition met`
 
 
 ## Тестирование
