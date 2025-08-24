@@ -23,6 +23,21 @@ from typing_extensions import Annotated
 app = FastAPI()
 
 
+@app.middleware("http")
+async def log_request(request: Request, call_next):
+    body = await request.body()
+    logger.debug(
+        "REQ %s %s headers=%s cookies=%s body=%s",
+        request.method,
+        request.url.path,
+        dict(request.headers),
+        request.cookies,
+        body.decode(errors="ignore"),
+    )
+    response = await call_next(request)
+    return response
+
+
 class LogResponseTimeMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         start = time.perf_counter()
