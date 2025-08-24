@@ -23,6 +23,8 @@ spec:
           mountPath: /etc/nginx/nginx.conf
           subPath: nginx.conf
         - name: html-content
+          mountPath: /usr/share/nginx/html-template
+        - name: generated-html
           mountPath: /usr/share/nginx/html
         env:
         - name: POD_NAME
@@ -33,6 +35,14 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          # Generate HTML with pod information
+          sed "s/{{POD_NAME}}/$POD_NAME/g; s/{{POD_IP}}/$POD_IP/g" /usr/share/nginx/html-template/index.html > /usr/share/nginx/html/index.html
+          # Start nginx
+          exec nginx -g 'daemon off;'
       volumes:
       - name: nginx-config
         configMap:
@@ -40,3 +50,5 @@ spec:
       - name: html-content
         configMap:
           name: hello-world-html
+      - name: generated-html
+        emptyDir: {}
