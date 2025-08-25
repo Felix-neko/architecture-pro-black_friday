@@ -89,6 +89,7 @@ class Product(Document):
     - Наименование
     - Категория товара
     - Цена
+    - Наличие запасов (has_supplies)
     - Остаток товара в каждой геозоне (например, в Екатеринбурге есть в наличии 50 штук товара «Смартфон X», а в Калининграде — 30)
     - Дополнительные атрибуты (цвет, размер)
 
@@ -97,13 +98,15 @@ class Product(Document):
     name: str
     description: Optional[str] = None
     price: float
+    has_supplies: bool = True
     category: Optional[Link[Category]] = None
     extra_info: Dict[str, Any] = {}
 
     class Settings:
         indexes = [
             [("price", pymongo.DESCENDING)],
-            [("category", pymongo.HASHED)]
+            [("category", pymongo.HASHED)],
+            [("has_supplies", pymongo.ASCENDING)]
         ]
 
 
@@ -285,36 +288,42 @@ async def upload_some_products():
             name="iPhone 15 Pro",
             description="Флагманский смартфон Apple с чипом A17 Pro",
             price=99999.0,
+            has_supplies=True,
             extra_info={"color": "Natural Titanium", "storage": "256GB"},
         ),
         Product(
             name="MacBook Air M2",
             description="Ультрабук Apple с процессором M2",
             price=129999.0,
+            has_supplies=True,
             extra_info={"color": "Space Gray", "ram": "16GB", "storage": "512GB"},
         ),
         Product(
             name="AirPods Pro 2",
             description="Беспроводные наушники с активным шумоподавлением",
             price=24999.0,
+            has_supplies=False,
             extra_info={"color": "White", "features": ["ANC", "Spatial Audio"]},
         ),
         Product(
             name="iPad Pro 12.9",
             description="Профессиональный планшет с M2 чипом",
             price=89999.0,
+            has_supplies=True,
             extra_info={"color": "Space Gray", "storage": "512GB", "cellular": True},
         ),
         Product(
             name="Apple Watch Series 9",
             description="Умные часы с GPS и Cellular",
             price=39999.0,
+            has_supplies=False,
             extra_info={"color": "Midnight", "size": "45mm", "band": "Sport Loop"},
         ),
         Product(
             name="Magic Keyboard",
             description="Беспроводная клавиатура для Mac",
             price=12999.0,
+            has_supplies=True,
             extra_info={"color": "Silver", "layout": "RU", "backlight": True},
         ),
     ]

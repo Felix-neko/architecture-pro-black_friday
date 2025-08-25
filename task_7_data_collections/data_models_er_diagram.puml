@@ -40,6 +40,7 @@ entity "Product" as product {
   --
   * name : string
   * price : float <<IDX>>
+  * has_supplies : bool <<IDX>>
   description : string
   category_id : ObjectId <<FK>> <<IDX>>
   extra_info : Dict
