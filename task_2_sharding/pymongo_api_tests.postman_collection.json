@@ -1,0 +1,235 @@
+{
+	"info": {
+		"_postman_id": "704b0a15-52ea-4799-9685-a31d00b4f302",
+		"name": "PyMongo API Tests",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "24002251"
+	},
+	"item": [
+		{
+			"name": "Main Info",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						""
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create a Collection",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/helloDoc1/create",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"helloDoc1",
+						"create"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Load Collection",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"",
+							"pm.test(\"Response contains exactly 1000 users\", function () {",
+							"    // Parse the JSON response",
+							"    const responseJson = pm.response.json();",
+							"    ",
+							"    // Check that users array exists and has exactly 1000 elements",
+							"    pm.expect(responseJson).to.have.property('users');",
+							"    pm.expect(responseJson.users).to.be.an('array');",
+							"    pm.expect(responseJson.users).to.have.lengthOf(1000);",
+							"});",
+							"",
+							"// Optional: Additional validation",
+							"pm.test(\"Users array structure validation\", function () {",
+							"    const responseJson = pm.response.json();",
+							"    ",
+							"    if (responseJson.users && responseJson.users.length > 0) {",
+							"        // Check that first user has expected properties",
+							"        const firstUser = responseJson.users[0];",
+							"        pm.expect(firstUser).to.have.property('id');",
+							"        pm.expect(firstUser).to.have.property('age');",
+							"        pm.expect(firstUser).to.have.property('name');",
+							"    }",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"packages": {},
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/helloDoc1/users",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"helloDoc1",
+						"users"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Collection Stats",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Response contains shards object with required replica sets\", function () {",
+							"    const responseJson = pm.response.json();",
+							"    ",
+							"    // Check that shards object exists",
+							"    pm.expect(responseJson).to.have.property('shards');",
+							"    pm.expect(responseJson.shards).to.be.an('object');",
+							"    ",
+							"    // Check that all three required replica sets exist",
+							"    const requiredShards = ['shard1rs', 'shard2rs', 'shard3rs'];",
+							"    requiredShards.forEach(shardName => {",
+							"        pm.expect(responseJson.shards).to.have.property(shardName);",
+							"        pm.expect(responseJson.shards[shardName]).to.have.property('count');",
+							"        pm.expect(responseJson.shards[shardName].count).to.be.a('number');",
+							"    });",
+							"});",
+							"",
+							"pm.test(\"Each shard count is non-negative (>= 0)\", function () {",
+							"    const responseJson = pm.response.json();",
+							"    ",
+							"    const requiredShards = ['shard1rs', 'shard2rs', 'shard3rs'];",
+							"    requiredShards.forEach(shardName => {",
+							"        const count = responseJson.shards[shardName].count;",
+							"        pm.expect(count, `${shardName}.count should be >= 0`).to.be.at.least(0);",
+							"        console.log(`${shardName}.count = ${count}`);",
+							"    });",
+							"});",
+							"",
+							"pm.test(\"Sum of shard counts equals 1000\", function () {",
+							"    const responseJson = pm.response.json();",
+							"    ",
+							"    // Calculate sum of counts from all three shards",
+							"    const shard1Count = responseJson.shards.shard1rs.count;",
+							"    const shard2Count = responseJson.shards.shard2rs.count;",
+							"    const shard3Count = responseJson.shards.shard3rs.count;",
+							"    ",
+							"    const totalCount = shard1Count + shard2Count + shard3Count;",
+							"    ",
+							"    // Log individual counts for debugging",
+							"    console.log(`Shard counts - shard1rs: ${shard1Count}, shard2rs: ${shard2Count}, shard3rs: ${shard3Count}`);",
+							"    console.log(`Total count: ${totalCount}`);",
+							"    ",
+							"    // Verify the sum equals 1000",
+							"    pm.expect(totalCount).to.equal(1000);",
+							"});",
+							"",
+							"// Optional: Additional validation to ensure counts are positive",
+							"pm.test(\"All shard counts are positive numbers\", function () {",
+							"    const responseJson = pm.response.json();",
+							"    ",
+							"    const shards = ['shard1rs', 'shard2rs', 'shard3rs'];",
+							"    shards.forEach(shardName => {",
+							"        const count = responseJson.shards[shardName].count;",
+							"        pm.expect(count, `${shardName} count should be positive`).to.be.greaterThan(0);",
+							"    });",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"packages": {},
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/helloDoc1/stats",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"helloDoc1",
+						"stats"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

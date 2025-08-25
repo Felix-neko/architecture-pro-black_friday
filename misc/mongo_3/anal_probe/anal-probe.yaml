@@ -1,0 +1,164 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: anal-probe-init-script
+  labels:
+    app: anal-probe
+data:
+  init-script.sh: |
+    #!/bin/bash
+    set -e
+    
+    echo "Starting initialization script..."
+    
+    # Ожидаем запуска SSH сервиса
+    sleep 5
+    
+    # Проверяем, что мы запущены от root
+    if [ "$EUID" -ne 0 ]; then
+        echo "ERROR: Script must be run as root"
+        exit 1
+    fi
+    
+    # Устанавливаем необходимые пакеты
+    echo "Installing packages..."
+    apt-get update -qq
+    apt-get install -y -qq mc python3.12 python3.12-venv python3.12-dev build-essential sudo
+    
+    # Проверяем существование пользователя alien
+    if id "alien" &>/dev/null; then
+        echo "User alien already exists"
+        # Добавляем пользователя в группу sudo, если он еще не в ней
+        usermod -aG sudo alien
+        echo "Added alien to sudo group"
+    else
+        echo "Creating user alien..."
+        useradd -m -s /bin/bash alien
+        echo "alien:qweasdzxc" | chpasswd
+        # Добавляем пользователя в группу sudo
+        usermod -aG sudo alien
+        echo "User alien created and added to sudo group"
+    fi
+    
+    # Создаем структуру директорий и virtualenv
+    echo "Setting up Python environment..."
+    su - alien -c "
+        mkdir -p /home/alien/misc/projects
+        cd /home/alien/misc/projects
+        python3.12 -m venv venv_312
+        source venv_312/bin/activate
+        pip install --upgrade pip
+        echo 'Virtual environment created successfully'
+    "
+    
+    # Добавляем алиасы в .bashrc
+    echo "Configuring shell aliases..."
+    su - alien -c "
+        echo '[[ $- == *i* ]] || return  # https://stackoverflow.com/questions/64790393' >> /home/alien/.bashrc
+        echo 'alias activate_venv=\"source ~/misc/projects/venv_312/bin/activate\"' >> /home/alien/.bashrc
+        echo 'echo \"Use: activate_venv to activate Python virtual environment\"' >> /home/alien/.bashrc
+    "
+    
+    echo "Initialization completed successfully"
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: anal-probe
+  labels:
+    app: anal-probe
+spec:
+  serviceName: anal-probe-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: anal-probe
+  template:
+    metadata:
+      labels:
+        app: anal-probe
+    spec:
+      containers:
+      - name: ubuntu-ssh
+        image: aoudiamoncef/ubuntu-sshd:latest
+        ports:
+        - containerPort: 22
+          name: ssh
+        env:
+        - name: SSH_USERNAME
+          value: "alien"
+        - name: SSH_PASSWORD
+          value: "qweasdzxc"
+        - name: SSH_ENABLE_PASSWORD_AUTH
+          value: "true"
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /bin/bash
+              - /opt/init-script.sh
+        volumeMounts:
+        - name: init-script-volume
+          mountPath: /opt/init-script.sh
+          subPath: init-script.sh
+        - name: alien-home
+          mountPath: /home/alien
+        readinessProbe:
+          tcpSocket:
+            port: 22
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 22
+          initialDelaySeconds: 60
+          periodSeconds: 30
+      volumes:
+      - name: init-script-volume
+        configMap:
+          name: anal-probe-init-script
+          defaultMode: 0755
+      - name: alien-home
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: anal-probe-service
+  labels:
+    app: anal-probe
+spec:
+  type: NodePort
+  ports:
+  - port: 22
+    targetPort: 22
+    nodePort: 32222
+    protocol: TCP
+    name: ssh
+  - port: 8080
+    targetPort: 8080
+    nodePort: 32080
+    protocol: TCP
+    name: http
+  selector:
+    app: anal-probe
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: anal-probe-headless
+  labels:
+    app: anal-probe
+spec:
+  clusterIP: None
+  ports:
+  - port: 22
+    targetPort: 22
+    protocol: TCP
+    name: ssh
+  selector:
+    app: anal-probe

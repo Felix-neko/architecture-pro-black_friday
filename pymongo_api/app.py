@@ -1,0 +1,299 @@
+import json
+import logging
+import logging.config  # Add this line
+import os
+import time
+from typing import List, Optional, Dict, Any
+
+import motor.motor_asyncio
+from bson import json_util
+from fastapi import Body, FastAPI, HTTPException, status, Path, Request
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
+from fastapi_cache.decorator import cache
+from logmiddleware import RouterLoggingMiddleware, logging_config
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic.functional_validators import BeforeValidator
+from pymongo import errors
+from redis import asyncio as aioredis
+from redis.cluster import ClusterNode
+from starlette.middleware.base import BaseHTTPMiddleware
+from typing_extensions import Annotated
+
+app = FastAPI()
+
+
+@app.middleware("http")
+async def log_request(request: Request, call_next):
+    body = await request.body()
+    logger.debug(
+        "REQ %s %s headers=%s cookies=%s body=%s",
+        request.method,
+        request.url.path,
+        dict(request.headers),
+        request.cookies,
+        body.decode(errors="ignore"),
+    )
+    response = await call_next(request)
+    return response
+
+
+class LogResponseTimeMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        start = time.perf_counter()
+        response = await call_next(request)
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        # include whatever you find useful: method, path, status, time
+        logger.info("%s %s %d %.2fms", request.method, request.url.path, response.status_code, elapsed_ms)
+        return response
+
+
+app.add_middleware(LogResponseTimeMiddleware)
+
+DATABASE_URL = os.environ["MONGODB_URL"]
+DATABASE_NAME = os.environ["MONGODB_DATABASE_NAME"]
+REDIS_URL = os.getenv("REDIS_URL", None)
+REDIS_CLUSTER_MODE = bool(os.getenv("REDIS_CLUSTER_MODE", False))
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
+
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
+logging.info("Фиг знает, почему, но если не сделать logging.info, то в логгеры ничего не пишется")
+
+
+def nocache(*args, **kwargs):
+    def decorator(func):
+        return func
+
+    return decorator
+
+
+if REDIS_URL:
+    cache = cache
+    if REDIS_CLUSTER_MODE:
+        cluster_nodes = [ClusterNode(*elm.split(":")) for elm in REDIS_URL.split(",")]
+        redis = aioredis.RedisCluster(startup_nodes=cluster_nodes, encoding="utf8", password=REDIS_PASSWORD)
+
+    else:
+        raise Exception("Redis cluster mode needed!")
+        # redis = aioredis.from_url(REDIS_URL, encoding="utf8", password=REDIS_PASSWORD)
+else:
+    cache = nocache
+    redis = None
+
+
+client = motor.motor_asyncio.AsyncIOMotorClient(DATABASE_URL)
+db = client[DATABASE_NAME]
+
+# Represents an ObjectId field in the database.
+# It will be represented as a `str` on the model so that it can be serialized to JSON.
+PyObjectId = Annotated[str, BeforeValidator(str)]
+
+
+@app.on_event("startup")
+async def startup():
+    if redis is not None:
+        backend = RedisBackend(redis)
+        logging.info(f"Backend is cluster: {backend.is_cluster}")
+
+        if backend.is_cluster:
+            logging.warning("Redis cluster mode detected")
+        FastAPICache.init(backend, prefix="api:cache")
+        logging.info("FastAPI cache initialized with Redis backend")
+    else:
+        logging.info("No Redis configuration found. Cache disabled.")
+
+    logging.info("Enabling sharding...")
+    try:
+        await client.admin.command("enableSharding", DATABASE_NAME)
+        logging.info("Sharding enabled...")
+    except Exception as e:
+        logging.error(f"Error enabling sharding: {e}")
+        logging.error("Maybe sharding not supported in this Mongo Server?")
+
+
+class UserModel(BaseModel):
+    """
+    Container for a single user record.
+    """
+
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    age: int = Field(...)
+    name: str = Field(...)
+
+
+class UserCollection(BaseModel):
+    """
+    A container holding a list of `UserModel` instances.
+    """
+
+    users: List[UserModel]
+
+
+@app.get("/")
+async def root():
+    collection_names = await db.list_collection_names()
+    collections = {}
+    for collection_name in collection_names:
+        collection = db.get_collection(collection_name)
+        collections[collection_name] = {"documents_count": await collection.count_documents({})}
+    try:
+        replica_status = await client.admin.command("replSetGetStatus")
+        replica_status = json.dumps(replica_status, indent=2, default=str)
+    except errors.OperationFailure as ex:
+        logging.error(ex)
+        replica_status = "No Replicas"
+
+    topology_description = client.topology_description
+    read_preference = client.client_options.read_preference
+    topology_type = topology_description.topology_type_name
+    replicaset_name = topology_description.replica_set_name
+
+    shards = None
+    if topology_type == "Sharded":
+        shards_list = await client.admin.command("listShards")
+        shards = {}
+        for shard in shards_list.get("shards", {}):
+            shards[shard["_id"]] = shard["host"]
+
+    cache_enabled = False
+    if REDIS_URL:
+        try:
+            cache_enabled = FastAPICache.get_enable()
+        except:
+            cache_enabled = False
+
+    return {
+        "mongo_topology_type": topology_type,
+        "mongo_replicaset_name": replicaset_name,
+        "mongo_db": DATABASE_NAME,
+        "read_preference": str(read_preference),
+        "mongo_nodes": client.nodes,
+        "mongo_primary_host": client.primary,
+        "mongo_secondary_hosts": client.secondaries,
+        "mongo_is_primary": client.is_primary,
+        "mongo_is_mongos": client.is_mongos,
+        "collections": collections,
+        "shards": shards,
+        "cache_enabled": cache_enabled,
+        "status": "OK",
+        "replica_status": replica_status,
+    }
+
+
+@app.get("/{collection_name}/count")
+async def collection_count(collection_name: str):
+    collection = db.get_collection(collection_name)
+    items_count = await collection.count_documents({})
+    # status = await client.admin.command('replSetGetStatus')
+    # import ipdb; ipdb.set_trace()
+    return {"status": "OK", "mongo_db": DATABASE_NAME, "items_count": items_count}
+
+
+@app.get(
+    "/{collection_name}/users",
+    response_description="List all users",
+    response_model=UserCollection,
+    response_model_by_alias=False,
+)
+@cache(expire=60 * 1)
+async def list_users(collection_name: str):
+    """
+    List all of the user data in the database.
+    The response is unpaginated and limited to 1000 results.
+    """
+    time.sleep(1)
+    collection = db.get_collection(collection_name)
+    return UserCollection(users=await collection.find().to_list(1000))
+
+
+@app.get(
+    "/{collection_name}/users/{name}",
+    response_description="Get a single user",
+    response_model=UserModel,
+    response_model_by_alias=False,
+)
+async def show_user(collection_name: str, name: str):
+    """
+    Get the record for a specific user, looked up by `name`.
+    """
+
+    collection = db.get_collection(collection_name)
+    if (user := await collection.find_one({"name": name})) is not None:
+        return user
+
+    raise HTTPException(status_code=404, detail=f"User {name} not found")
+
+
+USE_HASH_SHARDING = True
+N_TEST_DOCS = 1000
+
+
+@app.post("/{collection_name}/create")
+async def create_collection(collection_name: Annotated[str, Path(description="Имя коллекции")]):
+    """
+    Создать новую тестовую коллекцию (удалить старую, если нужно).
+    Включить хэш-шардинг по ID и заполнить её тестовыми данными.
+
+    На производительность вставки цинично забиваем, всё равно я нормлаьно в MongoDB не умею ))
+    """
+    collection_list = await db.list_collection_names()
+    if collection_name in collection_list:
+        await db.drop_collection(collection_name)
+        logger.info(f"Droped collection '{collection_name}'")
+
+    await db.create_collection(collection_name)
+    logger.info(f"Created collection '{collection_name}'")
+
+    if USE_HASH_SHARDING:
+        try:
+            await client.admin.command(
+                {"shardCollection": f"{DATABASE_NAME}.{collection_name}", "key": {"_id": "hashed"}}
+            )
+            logger.info(f"Enabled hashed sharding on '{collection_name}'")
+        except errors.OperationFailure as ex:
+            logger.error(f"Failed to enable hashed sharding on '{collection_name}': {ex}")
+
+    if N_TEST_DOCS is not None:
+        collection = db[collection_name]
+        documents = [{"age": i, "name": f"ly{i}"} for i in range(N_TEST_DOCS)]
+        await collection.insert_many(documents)
+        logger.info(f"Inserted {N_TEST_DOCS} documents into '{collection_name}'")
+
+
+@app.get("/{collection_name}/stats")
+async def get_collection_stats(collection_name: Annotated[str, Path(description="Имя коллекции")]) -> Dict[str, Any]:
+    """
+    Получить статистику по коллекции
+    """
+    collection_list = await db.list_collection_names()
+    if collection_name not in collection_list:
+        raise HTTPException(status_code=404, detail=f"Collection {collection_name} not found")
+    stats = await db.command({"collStats": collection_name, "verbose": False})
+    return json.loads(json_util.dumps(stats))
+
+
+@app.post(
+    "/{collection_name}/users",
+    response_description="Add new user",
+    response_model=UserModel,
+    status_code=status.HTTP_201_CREATED,
+    response_model_by_alias=False,
+)
+async def create_user(collection_name: str, user: UserModel = Body(...)):
+    """
+    Insert a new user record.
+
+    A unique `id` will be created and provided in the response.
+    """
+    collection = db.get_collection(collection_name)
+    new_user = await collection.insert_one(user.model_dump(by_alias=True, exclude=["id"]))
+    created_user = await collection.find_one({"_id": new_user.inserted_id})
+    return created_user
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="debug")

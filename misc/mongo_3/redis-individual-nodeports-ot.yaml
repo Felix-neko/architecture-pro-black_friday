@@ -1,0 +1,120 @@
+# NodePort сервисы для прямого доступа к каждой Redis ноде
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-leader-0-nodeport
+  namespace: redis
+  labels:
+    app: redis-nodeport
+    node: leader-0
+spec:
+  type: NodePort
+  selector:
+    statefulset.kubernetes.io/pod-name: my-redis-leader-0
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: 6379
+    nodePort: 30301
+    protocol: TCP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-leader-1-nodeport
+  namespace: redis
+  labels:
+    app: redis-nodeport
+    node: leader-1
+spec:
+  type: NodePort
+  selector:
+    statefulset.kubernetes.io/pod-name: my-redis-leader-1
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: 6379
+    nodePort: 30302
+    protocol: TCP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-leader-2-nodeport
+  namespace: redis
+  labels:
+    app: redis-nodeport
+    node: leader-2
+spec:
+  type: NodePort
+  selector:
+    statefulset.kubernetes.io/pod-name: my-redis-leader-2
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: 6379
+    nodePort: 30303
+    protocol: TCP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-follower-0-nodeport
+  namespace: redis
+  labels:
+    app: redis-nodeport
+    node: follower-0
+spec:
+  type: NodePort
+  selector:
+    statefulset.kubernetes.io/pod-name: my-redis-follower-0
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: 6379
+    nodePort: 30304
+    protocol: TCP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-follower-1-nodeport
+  namespace: redis
+  labels:
+    app: redis-nodeport
+    node: follower-1
+spec:
+  type: NodePort
+  selector:
+    statefulset.kubernetes.io/pod-name: my-redis-follower-1
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: 6379
+    nodePort: 30305
+    protocol: TCP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-follower-2-nodeport
+  namespace: redis
+  labels:
+    app: redis-nodeport
+    node: follower-2
+spec:
+  type: NodePort
+  selector:
+    statefulset.kubernetes.io/pod-name: my-redis-follower-2
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: 6379
+    nodePort: 30306
+    protocol: TCP

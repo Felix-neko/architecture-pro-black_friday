@@ -1,23 +1,32 @@
 services:
   mongodb1:
     container_name: mongodb1
-    image: dh-mirror.gitverse.ru/mongo:latest
+    image: mongo
     volumes:
       - mongodb1_data_container:/data/db
+    ports:
+      - 27017:27017
 
   pymongo_api:
+    restart: "no"  # или on-failure
     container_name: pymongo_api
     build: 
-      context: api_app
+      context: pymongo_api
       dockerfile: Dockerfile
     depends_on:
       - mongodb1
     ports:
       - 8080:8080
     environment:
-      MONGODB_URL: "mongodb://mongodb1"
-      MONGODB_DATABASE_NAME: "somedb"
+      MONGODB_URL: "mongodb://mongodb1:27017"
+#      MONGODB_URL: "mongodb://mongodb1:27017"
+      MONGODB_DATABASE_NAME: "test_db"
 
 
 volumes:
   mongodb1_data_container:
+
+
+networks:
+  default:
+    name: mongodb-network

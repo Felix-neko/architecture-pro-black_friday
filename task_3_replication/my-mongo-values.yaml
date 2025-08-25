@@ -1,0 +1,24 @@
+# my-mongo-values.yaml
+auth:
+  enabled: true
+  rootPassword: "rootpass"
+  replicaSetKey: "replkey"
+
+resourcesPreset: large
+
+# 3 шарда с репликой master+slave
+shards: 3
+shardsvr:
+  dataNode:
+    replicaCount: 2
+
+# 3 конфиг-сервера
+configsvr:
+  replicaCount: 3
+
+# 2 mongos-роутера
+mongos:
+  replicaCount: 2
+  useStatefulSet: true  # Чтобы проще было прописать для них сервисы статически по именам подов
+
+# anti-affinity я здесь не прописываю: во-первых, я в него пока не умею, а во-вторых, для тестов на minikube и без него сгодится.

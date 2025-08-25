@@ -1,0 +1,6 @@
+# 6 нод, из них должно быть 3 мастер-ноды и 3 реплики: https://artifacthub.io/packages/helm/bitnami/redis-cluster#cluster-topology
+cluster:
+  nodes: 6
+  replicas: 1
+
+password: "redis-dev-password"

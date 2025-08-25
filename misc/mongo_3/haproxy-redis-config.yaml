@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: haproxy-redis-config
+data:
+  haproxy.cfg: |
+    global
+        daemon
+        log stdout local0
+        
+    defaults
+        mode tcp
+        timeout connect 5000ms
+        timeout client 50000ms
+        timeout server 50000ms
+        log global
+        
+    # Stats interface
+    frontend stats
+        bind *:8080
+        mode http
+        stats enable
+        stats uri /stats
+        stats refresh 30s
+        stats admin if TRUE
+        
+    # Redis standalone mode - all traffic to primary node
+    frontend redis-standalone
+        bind *:6379
+        default_backend redis-primary
+        
+    # Redis read operations - can use any node
+    frontend redis-read
+        bind *:6380
+        default_backend redis-primary
+        
+    # Backend for primary Redis node (to avoid MOVED errors)
+    backend redis-primary
+        balance first
+        server redis-leader-0 my-redis-leader-0.my-redis-leader-headless.redis.svc.cluster.local:6379 check
+        server redis-leader-1 my-redis-leader-1.my-redis-leader-headless.redis.svc.cluster.local:6379 check backup
+        server redis-leader-2 my-redis-leader-2.my-redis-leader-headless.redis.svc.cluster.local:6379 check backup

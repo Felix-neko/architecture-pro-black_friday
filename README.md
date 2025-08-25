@@ -1,35 +1,18 @@
-# pymongo-api
+# Спринт 4: Шардирование и репликация
 
-## Как запустить
+## Оглавление заданий
 
-Запускаем mongodb и приложение
+| Задание | Описание | Ссылка |
+|---------|----------|--------|
+| **Задание 1** | Планирование архитектуры (шардирование, репликация, кэширование) | [task_1/README.md](./task_1/README.md) |
+| **Задание 2** | Настройка шардирования MongoDB | [task_2_sharding/README.md](./task_2_sharding/README.md) |
+| **Задание 3** | Репликация на Kubernetes | [task_3_replication/README.md](./task_3_replication/README.md) |
+| **Задание 4** | Кэширование с Redis | [task_4_caching/README.md](./task_4_caching/README.md) |
+| **Задание 5** | API Gateway и Service Discovery | [task_5_api_gateway/README.md](./task_5_api_gateway/README.md) |
+| **Задание 6** | CDN для статических ресурсов | [task_6_cdn/README.md](./task_6_cdn/README.md) |
+| **Задание 7** | Проектирование схем коллекций для шардирования | [task_7_data_collections/README.md](./task_7_data_collections/README.md) |
+| **Задание 8** | Выявление и устранение «горячих» шардов | [task_8_hot_shards/README.md](./task_8_hot_shards/README.md) |
+| **Задание 9** | Настройка чтения с реплик и консистентность | [task_9_reading_from_replicas/README.md](./task_9_reading_from_replicas/README.md) |
+| **Задание 10** | Cassandra как альтернатива MongoDB | [task_10_cassandra/README.md](./task_10_cassandra/README.md) |
 
-```shell
-docker compose up -d
-```
-
-Заполняем mongodb данными
-
-```shell
-./scripts/mongo-init.sh
-```
-
-## Как проверить
-
-### Если вы запускаете проект на локальной машине
-
-Откройте в браузере http://localhost:8080
-
-### Если вы запускаете проект на предоставленной виртуальной машине
-
-Узнать белый ip виртуальной машины
-
-```shell
-curl --silent http://ifconfig.me
-```
-
-Откройте в браузере http://<ip виртуальной машины>:8080
-
-## Доступные эндпоинты
-
-Список доступных эндпоинтов, swagger http://<ip виртуальной машины>:8080/docs
+[//]: # (Generated with Claude Sonnet 4)
