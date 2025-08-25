@@ -10,8 +10,9 @@ import json
 from collections import defaultdict
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
 
 class HotShardDetector:
     def __init__(self, connection_url: str, database_name: str = None):
@@ -60,7 +61,7 @@ class HotShardDetector:
                     "id": shard_id,
                     "host": shard_host,
                     "state": shard_state,
-                    "tags": shard.get("tags", {})
+                    "tags": shard.get("tags", {}),
                 }
 
             logger.info(f"📊 Найдено шардов: {len(shards_info)}")
@@ -113,7 +114,7 @@ class HotShardDetector:
                                 "dataSize": data_size,
                                 "avgObjSize": avg_obj_size,
                                 "storageSize": stats.get("storageSize", 0),
-                                "indexSize": stats.get("totalIndexSize", 0)
+                                "indexSize": stats.get("totalIndexSize", 0),
                             }
 
                             total_docs += doc_count
@@ -124,14 +125,18 @@ class HotShardDetector:
                             docs = collection_distribution[shard_id]["documents"]
                             size = collection_distribution[shard_id]["dataSize"]
 
-                            collection_distribution[shard_id]["docPercentage"] = (docs / total_docs * 100) if total_docs > 0 else 0
-                            collection_distribution[shard_id]["sizePercentage"] = (size / total_size * 100) if total_size > 0 else 0
+                            collection_distribution[shard_id]["docPercentage"] = (
+                                (docs / total_docs * 100) if total_docs > 0 else 0
+                            )
+                            collection_distribution[shard_id]["sizePercentage"] = (
+                                (size / total_size * 100) if total_size > 0 else 0
+                            )
 
                         distribution_data[collection_name] = {
                             "shardKey": shard_key,
                             "totalDocuments": total_docs,
                             "totalDataSize": total_size,
-                            "shardDistribution": collection_distribution
+                            "shardDistribution": collection_distribution,
                         }
 
                 except Exception as e:
@@ -181,13 +186,17 @@ class HotShardDetector:
                 for op in current_ops.get("inprog", []):
                     shard_info = op.get("shard")
                     if shard_info:
-                        ops_by_shard[shard_info].append({
-                            "opid": op.get("opid"),
-                            "op": op.get("op"),
-                            "ns": op.get("ns"),
-                            "duration": op.get("secs_running", 0),
-                            "command": op.get("command", {}).get("find") or op.get("command", {}).get("update") or "other"
-                        })
+                        ops_by_shard[shard_info].append(
+                            {
+                                "opid": op.get("opid"),
+                                "op": op.get("op"),
+                                "ns": op.get("ns"),
+                                "duration": op.get("secs_running", 0),
+                                "command": op.get("command", {}).get("find")
+                                or op.get("command", {}).get("update")
+                                or "other",
+                            }
+                        )
 
                 shard_ops_stats["currentOperations"] = dict(ops_by_shard)
 
@@ -222,14 +231,16 @@ class HotShardDetector:
 
             pipeline = [
                 {"$match": {"ts": {"$gte": one_hour_ago}}},
-                {"$group": {
-                    "_id": "$ns",
-                    "count": {"$sum": 1},
-                    "avgDuration": {"$avg": "$millis"},
-                    "maxDuration": {"$max": "$millis"},
-                    "totalDuration": {"$sum": "$millis"}
-                }},
-                {"$sort": {"totalDuration": -1}}
+                {
+                    "$group": {
+                        "_id": "$ns",
+                        "count": {"$sum": 1},
+                        "avgDuration": {"$avg": "$millis"},
+                        "maxDuration": {"$max": "$millis"},
+                        "totalDuration": {"$sum": "$millis"},
+                    }
+                },
+                {"$sort": {"totalDuration": -1}},
             ]
 
             profiler_stats = list(profiler_collection.aggregate(pipeline))
@@ -239,13 +250,15 @@ class HotShardDetector:
             logger.warning(f"⚠️ Ошибка при получении статистики профайлера: {e}")
             return {}
 
-    def detect_hot_shards(self, distribution_data: Dict[str, Any], threshold_percentage: float = 30.0) -> Dict[str, Any]:
+    def detect_hot_shards(
+        self, distribution_data: Dict[str, Any], threshold_percentage: float = 30.0
+    ) -> Dict[str, Any]:
         """Обнаружение горячих шардов на основе распределения данных"""
         hot_shards_analysis = {
             "hotShards": [],
             "allShards": [],  # Новое поле для всех шардов
             "recommendations": [],
-            "summary": {}
+            "summary": {},
         }
 
         if not distribution_data:
@@ -261,12 +274,14 @@ class HotShardDetector:
             for shard_id, shard_stats in shard_distribution.items():
                 all_shard_loads[shard_id]["documents"] += shard_stats.get("documents", 0)
                 all_shard_loads[shard_id]["dataSize"] += shard_stats.get("dataSize", 0)
-                all_shard_loads[shard_id]["collections"].append({
-                    "name": collection_name,
-                    "documents": shard_stats.get("documents", 0),
-                    "docPercentage": shard_stats.get("docPercentage", 0),
-                    "sizePercentage": shard_stats.get("sizePercentage", 0)
-                })
+                all_shard_loads[shard_id]["collections"].append(
+                    {
+                        "name": collection_name,
+                        "documents": shard_stats.get("documents", 0),
+                        "docPercentage": shard_stats.get("docPercentage", 0),
+                        "sizePercentage": shard_stats.get("sizePercentage", 0),
+                    }
+                )
 
         if not all_shard_loads:
             return hot_shards_analysis
@@ -298,8 +313,16 @@ class HotShardDetector:
                 "dataSizePercentage": round(size_percentage, 2),
                 "collections": load_data["collections"],
                 "hotnessFactor": max(doc_percentage, size_percentage) / (100 / num_shards) if num_shards > 0 else 0,
-                "documentsDeviationFromAvg": round(((load_data["documents"] - avg_documents_per_shard) / avg_documents_per_shard * 100), 1) if avg_documents_per_shard > 0 else 0,
-                "sizeDeviationFromAvg": round(((load_data["dataSize"] - avg_size_per_shard) / avg_size_per_shard * 100), 1) if avg_size_per_shard > 0 else 0
+                "documentsDeviationFromAvg": (
+                    round(((load_data["documents"] - avg_documents_per_shard) / avg_documents_per_shard * 100), 1)
+                    if avg_documents_per_shard > 0
+                    else 0
+                ),
+                "sizeDeviationFromAvg": (
+                    round(((load_data["dataSize"] - avg_size_per_shard) / avg_size_per_shard * 100), 1)
+                    if avg_size_per_shard > 0
+                    else 0
+                ),
             }
 
             # Добавляем во все шарды
@@ -322,7 +345,7 @@ class HotShardDetector:
             "totalDataSize": total_data_size,
             "averageDocumentsPerShard": round(avg_documents_per_shard, 2),
             "averageDataSizePerShard": round(avg_size_per_shard, 2),
-            "threshold": threshold_percentage
+            "threshold": threshold_percentage,
         }
 
         # Генерируем рекомендации
@@ -336,7 +359,9 @@ class HotShardDetector:
 
             # Специфичные рекомендации для каждого горячего шарда
             for hot_shard in hot_shards:
-                recommendations.append(f"   - Шард {hot_shard['shardId']}: {hot_shard['hotnessFactor']:.1f}x превышение нормы")
+                recommendations.append(
+                    f"   - Шард {hot_shard['shardId']}: {hot_shard['hotnessFactor']:.1f}x превышение нормы"
+                )
         else:
             recommendations.append("✅ Горячие шарды не обнаружены. Распределение данных выглядит сбалансированным.")
 
@@ -355,39 +380,32 @@ class HotShardDetector:
 
             # Группируем чанки по шардам
             pipeline = [
-                {"$group": {
-                    "_id": {"shard": "$shard", "ns": "$ns"},
-                    "chunkCount": {"$sum": 1}
-                }},
-                {"$group": {
-                    "_id": "$_id.shard",
-                    "collections": {
-                        "$push": {
-                            "ns": "$_id.ns",
-                            "chunks": "$chunkCount"
-                        }
-                    },
-                    "totalChunks": {"$sum": "$chunkCount"}
-                }},
-                {"$sort": {"totalChunks": -1}}
+                {"$group": {"_id": {"shard": "$shard", "ns": "$ns"}, "chunkCount": {"$sum": 1}}},
+                {
+                    "$group": {
+                        "_id": "$_id.shard",
+                        "collections": {"$push": {"ns": "$_id.ns", "chunks": "$chunkCount"}},
+                        "totalChunks": {"$sum": "$chunkCount"},
+                    }
+                },
+                {"$sort": {"totalChunks": -1}},
             ]
 
             chunk_distribution = list(chunks_collection.aggregate(pipeline))
 
-            return {
-                "chunkDistribution": chunk_distribution,
-                "totalShards": len(chunk_distribution)
-            }
+            return {"chunkDistribution": chunk_distribution, "totalShards": len(chunk_distribution)}
 
         except Exception as e:
             logger.error(f"❌ Ошибка при анализе распределения чанков: {e}")
             return {}
 
-    def print_analysis_report(self, shard_info: Dict, distribution_data: Dict, hot_shards_analysis: Dict, chunk_data: Dict, ops_stats: Dict):
+    def print_analysis_report(
+        self, shard_info: Dict, distribution_data: Dict, hot_shards_analysis: Dict, chunk_data: Dict, ops_stats: Dict
+    ):
         """Вывод детального отчета об анализе шардов"""
-        print("\n" + "="*100)
+        print("\n" + "=" * 100)
         print("📊 ОТЧЕТ ПО АНАЛИЗУ ГОРЯЧИХ ШАРДОВ MONGODB")
-        print("="*100)
+        print("=" * 100)
 
         # Общая информация о кластере
         print(f"\n🏗️  ИНФОРМАЦИЯ О КЛАСТЕРЕ")
@@ -412,7 +430,9 @@ class HotShardDetector:
                 total_size = collection_data.get("totalDataSize", 0)
                 shard_key = str(collection_data.get("shardKey", {}))
 
-                print(f"   {collection_name:<25} {total_docs:<18,} {self._format_bytes(total_size):<15} {shard_key:<30}")
+                print(
+                    f"   {collection_name:<25} {total_docs:<18,} {self._format_bytes(total_size):<15} {shard_key:<30}"
+                )
 
             # Детальная информация по каждой коллекции
             for collection_name, collection_data in distribution_data.items():
@@ -431,8 +451,7 @@ class HotShardDetector:
                     print(f"   {'-'*20} {'-'*15} {'-'*8} {'-'*15} {'-'*8} {'-'*12}")
 
                     # Сортируем по количеству документов
-                    sorted_shards = sorted(shard_distribution.items(),
-                                           key=lambda x: x[1]['documents'], reverse=True)
+                    sorted_shards = sorted(shard_distribution.items(), key=lambda x: x[1]["documents"], reverse=True)
 
                     for shard_id, stats in sorted_shards:
                         doc_count = stats.get("documents", 0)
@@ -444,9 +463,11 @@ class HotShardDetector:
                         # Маркируем неравномерное распределение
                         imbalance_marker = "⚠️" if doc_percentage > 40 or doc_percentage < 15 else "  "
 
-                        print(f"{imbalance_marker} {shard_id:<18} {doc_count:<15,} {doc_percentage:<8.1f} "
-                              f"{self._format_bytes(data_size):<15} {size_percentage:<8.1f} "
-                              f"{self._format_bytes(avg_obj_size):<12}")
+                        print(
+                            f"{imbalance_marker} {shard_id:<18} {doc_count:<15,} {doc_percentage:<8.1f} "
+                            f"{self._format_bytes(data_size):<15} {size_percentage:<8.1f} "
+                            f"{self._format_bytes(avg_obj_size):<12}"
+                        )
 
                 print()
 
@@ -497,18 +518,20 @@ class HotShardDetector:
         all_shards = hot_shards_analysis.get("allShards", [])
         if all_shards:
             print(f"\n🔍 АНАЛИЗ ВСЕХ ШАРДОВ")
-            print(f"   {'Шард':<15} {'Статус':<8} {'Документы':<15} {'% док':<8} {'Размер':<15} {'% размер':<10} {'Фактор':<8} {'Отклонение':<12}")
+            print(
+                f"   {'Шард':<15} {'Статус':<8} {'Документы':<15} {'% док':<8} {'Размер':<15} {'% размер':<10} {'Фактор':<8} {'Отклонение':<12}"
+            )
             print(f"   {'-'*15} {'-'*8} {'-'*15} {'-'*8} {'-'*15} {'-'*10} {'-'*8} {'-'*12}")
 
             for shard_analysis in all_shards:
-                shard_id = shard_analysis['shardId']
-                status = "🔥 ГОР" if shard_analysis['isHot'] else "✅ ОК"
-                doc_count = shard_analysis['documentCount']
-                doc_percentage = shard_analysis['documentPercentage']
-                data_size = shard_analysis['dataSize']
-                size_percentage = shard_analysis['dataSizePercentage']
-                hotness_factor = shard_analysis['hotnessFactor']
-                doc_deviation = shard_analysis['documentsDeviationFromAvg']
+                shard_id = shard_analysis["shardId"]
+                status = "🔥 ГОР" if shard_analysis["isHot"] else "✅ ОК"
+                doc_count = shard_analysis["documentCount"]
+                doc_percentage = shard_analysis["documentPercentage"]
+                data_size = shard_analysis["dataSize"]
+                size_percentage = shard_analysis["dataSizePercentage"]
+                hotness_factor = shard_analysis["hotnessFactor"]
+                doc_deviation = shard_analysis["documentsDeviationFromAvg"]
 
                 # Определяем цветовой индикатор отклонения
                 deviation_indicator = ""
@@ -519,9 +542,11 @@ class HotShardDetector:
                 else:
                     deviation_indicator = "  "
 
-                print(f"   {shard_id:<15} {status:<8} {doc_count:<15,} {doc_percentage:<8.1f} "
-                      f"{self._format_bytes(data_size):<15} {size_percentage:<10.1f} "
-                      f"{hotness_factor:<8.1f} {deviation_indicator}{doc_deviation:>+6.1f}%")
+                print(
+                    f"   {shard_id:<15} {status:<8} {doc_count:<15,} {doc_percentage:<8.1f} "
+                    f"{self._format_bytes(data_size):<15} {size_percentage:<10.1f} "
+                    f"{hotness_factor:<8.1f} {deviation_indicator}{doc_deviation:>+6.1f}%"
+                )
 
             print(f"\n   Легенда статусов:")
             print(f"   🔥 ГОР - Горячий шард (превышает {hot_shards_analysis['summary']['threshold']:.0f}% порог)")
@@ -536,15 +561,22 @@ class HotShardDetector:
                 print(f"\n   {i}. Шард: {hot_shard['shardId']}")
                 print(f"      Фактор нагрузки: {hot_shard['hotnessFactor']:.1f}x")
                 print(f"      Документы: {hot_shard['documentCount']:,} ({hot_shard['documentPercentage']:.1f}%)")
-                print(f"      Размер данных: {self._format_bytes(hot_shard['dataSize'])} ({hot_shard['dataSizePercentage']:.1f}%)")
-                print(f"      Отклонение от среднего: документы {hot_shard['documentsDeviationFromAvg']:+.1f}%, размер {hot_shard['sizeDeviationFromAvg']:+.1f}%")
+                print(
+                    f"      Размер данных: {self._format_bytes(hot_shard['dataSize'])} ({hot_shard['dataSizePercentage']:.1f}%)"
+                )
+                print(
+                    f"      Отклонение от среднего: документы {hot_shard['documentsDeviationFromAvg']:+.1f}%, размер {hot_shard['sizeDeviationFromAvg']:+.1f}%"
+                )
 
-                if hot_shard['collections']:
+                if hot_shard["collections"]:
                     print(f"      Коллекции с наибольшей нагрузкой:")
-                    sorted_collections = sorted(hot_shard['collections'],
-                                                key=lambda x: x['docPercentage'], reverse=True)
+                    sorted_collections = sorted(
+                        hot_shard["collections"], key=lambda x: x["docPercentage"], reverse=True
+                    )
                     for coll in sorted_collections[:3]:  # Топ-3 коллекции
-                        print(f"        - {coll['name']}: {coll['documents']:,} документов ({coll['docPercentage']:.1f}%)")
+                        print(
+                            f"        - {coll['name']}: {coll['documents']:,} документов ({coll['docPercentage']:.1f}%)"
+                        )
         else:
             print(f"\n✅ ГОРЯЧИЕ ШАРДЫ НЕ ОБНАРУЖЕНЫ")
 
@@ -555,9 +587,65 @@ class HotShardDetector:
             for shard_id, operations in current_ops.items():
                 if operations:
                     print(f"   {shard_id}: {len(operations)} активных операций")
-                    long_running = [op for op in operations if op.get('duration', 0) > 10]
-                    if long_running:
-                        print(f"      ⚠️ Длительные операции (>10 сек): {len(long_running)}")
+
+                    # Группировка операций по типу
+                    ops_by_type = defaultdict(list)
+                    for op in operations:
+                        op_type = op.get("op", "unknown")
+                        ops_by_type[op_type].append(op)
+
+                        # print(op)
+
+                    # Детальная информация по каждой операции
+                    for op_type, type_operations in ops_by_type.items():
+                        print(f"      📋 {op_type.upper()}: {len(type_operations)} операций")
+
+                        for i, op in enumerate(type_operations[:5]):  # Показываем до 5 операций каждого типа
+                            duration = op.get("microsecs_running", 0) / 1000000  # Конвертируем в секунды
+                            ns = op.get("ns", "N/A")
+                            client = op.get("client", "N/A")
+                            desc = op.get("desc", "N/A")
+
+                            # Определяем статус операции
+                            status_icon = "🔴" if duration > 10 else "🟡" if duration > 1 else "🟢"
+
+                            print(f"         {status_icon} #{i+1}: {desc}")
+                            print(f"            Длительность: {duration:.2f} сек")
+                            print(f"            Коллекция: {ns}")
+                            print(f"            Клиент: {client}")
+
+                            # Дополнительная информация для специфичных операций
+                            if op.get("command"):
+                                cmd_name = list(op["command"].keys())[0] if op["command"] else "unknown"
+                                print(f"            Команда: {cmd_name}")
+
+                            if op.get("locks"):
+                                locks_info = []
+                                for lock_type, lock_mode in op["locks"].items():
+                                    locks_info.append(f"{lock_type}:{lock_mode}")
+                                print(f"            Блокировки: {', '.join(locks_info)}")
+
+                            if op.get("waitingForLock"):
+                                print(f"            ⏳ Ожидает блокировку")
+
+                            print()
+
+                        if len(type_operations) > 5:
+                            print(f"         ... и еще {len(type_operations) - 5} операций типа {op_type}")
+
+                    # Статистика по длительности операций
+                    durations = [op.get("microsecs_running", 0) / 1000000 for op in operations]
+                    if durations:
+                        avg_duration = sum(durations) / len(durations)
+                        max_duration = max(durations)
+                        long_running = [d for d in durations if d > 10]
+
+                        print(f"      📊 Статистика длительности:")
+                        print(f"         Средняя: {avg_duration:.2f} сек")
+                        print(f"         Максимальная: {max_duration:.2f} сек")
+                        if long_running:
+                            print(f"         ⚠️ Длительные операции (>10 сек): {len(long_running)}")
+                    print()
 
         # Рекомендации
         recommendations = hot_shards_analysis.get("recommendations", [])
@@ -566,16 +654,16 @@ class HotShardDetector:
             for recommendation in recommendations:
                 print(f"   {recommendation}")
 
-        print("\n" + "="*100)
+        print("\n" + "=" * 100)
 
     def _format_bytes(self, bytes_value: float) -> str:
         """Форматирование размера в удобочитаемый вид"""
         if bytes_value == 0:
             return "0 B"
 
-        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        for unit in ["B", "KB", "MB", "GB", "TB"]:
             if bytes_value < 1024.0:
-                if unit == 'B':
+                if unit == "B":
                     return f"{int(bytes_value)} {unit}"
                 else:
                     return f"{bytes_value:.1f} {unit}"
@@ -611,7 +699,7 @@ class HotShardDetector:
                 "distributionData": distribution_data,
                 "hotShardsAnalysis": hot_shards_analysis,
                 "chunkData": chunk_data,
-                "operationsStats": ops_stats
+                "operationsStats": ops_stats,
             }
 
         except Exception as e:
@@ -623,11 +711,14 @@ class HotShardDetector:
         if self.client:
             self.client.close()
 
+
 def main():
     # Настройки подключения
-    CONNECTION_URL = "mongodb://root:rootpass@minikube-docker:30000,minikube-docker:30001"  # URL для подключения к MongoDB
-    DATABASE_NAME = "load_test_db"                # Имя базы данных для анализа
-    THRESHOLD_PERCENTAGE = 25.0                   # Порог для определения горячих шардов (%)
+    CONNECTION_URL = (
+        "mongodb://root:rootpass@minikube-docker:30000,minikube-docker:30001"  # URL для подключения к MongoDB
+    )
+    DATABASE_NAME = "load_test_db"  # Имя базы данных для анализа
+    THRESHOLD_PERCENTAGE = 25.0  # Порог для определения горячих шардов (%)
 
     detector = HotShardDetector(CONNECTION_URL, DATABASE_NAME)
 
@@ -646,6 +737,7 @@ def main():
         logger.error(f"❌ Критическая ошибка: {e}")
     finally:
         detector.close_connection()
+
 
 if __name__ == "__main__":
     main()
