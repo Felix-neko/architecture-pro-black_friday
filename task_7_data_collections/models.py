@@ -10,6 +10,7 @@ ProductOrder → order_id (hashed)
 Нешардируемые:
 
 ProductStock - малый объем, частые обновления
+Client -- тоже малый объём
 Warehouse, GeoPoint - справочники
 
 """
@@ -32,9 +33,39 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class Category(BaseModel):
+class Category(Document):
+    """
+    Категории товаров
+    
+    Атрибуты:
+    - Название категории
+    - Описание категории
+    """
     name: str
     description: str
+    
+    class Settings:
+        indexes = [[("name", pymongo.ASCENDING)]]
+
+
+class Client(Document):
+    """
+    Клиенты магазина
+
+    Атрибуты:
+    - Имя клиента
+    - Email
+    - Телефон
+    - Дата регистрации
+    """
+
+    name: str
+    email: str
+    phone: Optional[str] = None
+    registered_at: datetime = datetime.now()
+
+    class Settings:
+        indexes = [[("email", pymongo.ASCENDING)], [("registered_at", pymongo.DESCENDING)]]
 
 
 class GeoPoint(Document):
@@ -70,7 +101,10 @@ class Product(Document):
     extra_info: Dict[str, Any] = {}
 
     class Settings:
-        indexes = [[("price", pymongo.DESCENDING)]]
+        indexes = [
+            [("price", pymongo.DESCENDING)],
+            [("category", pymongo.HASHED)]
+        ]
 
 
 class OrderStatus(str, enum.Enum):
@@ -102,7 +136,7 @@ class Order(Document):
 
     """
 
-    client_id: PydanticObjectId
+    client_id: Link[Client]
     created_at: datetime = datetime.now()
 
     contents: Dict[PydanticObjectId, Tuple[int, float]] = {}  # {product_id: (quantity, price_per_item)}
@@ -146,7 +180,7 @@ class Cart(Document):
     - Отметка корзины как заказанной
     """
 
-    client_id: Optional[PydanticObjectId] = None
+    client_id: Optional[Link[Client]] = None
     session_id: Optional[PydanticObjectId] = None
     contents: Dict[PydanticObjectId, int] = {}  # {product_id: quantity}
     status: CartStatus = CartStatus.ACTIVE
@@ -210,12 +244,26 @@ async def init_mongo_db():
     # Initialize beanie with the Sample document class and a database
     await init_beanie(
         database=client.mega_shop,
-        document_models=[GeoPoint, Product, Cart, Order, ProductOrder, Warehouse, ProductStock],
+        document_models=[GeoPoint, Product, Cart, Order, ProductOrder, Warehouse, ProductStock, Client, Category],
     )
 
 
 async def upload_some_products():
-    # 1. Создаем геоточки для складов
+    # 1. Создаем категории
+    categories = [
+        Category(name="Смартфоны", description="Мобильные телефоны и смартфоны"),
+        Category(name="Ноутбуки", description="Портативные компьютеры"),
+        Category(name="Аудио", description="Наушники и аудиоустройства"),
+        Category(name="Планшеты", description="Планшетные компьютеры"),
+        Category(name="Умные часы", description="Смарт-часы и фитнес-трекеры"),
+        Category(name="Аксессуары", description="Клавиатуры, мыши и другие аксессуары"),
+    ]
+    
+    for category in categories:
+        await category.insert()
+        print(f"Создана категория: {category.name}")
+
+    # 2. Создаем геоточки для складов
     moscow_geo = GeoPoint(geohash="ucfv0j", lat=55.7558, lon=37.6176)
     novosibirsk_geo = GeoPoint(geohash="v2e8k7", lat=55.0084, lon=82.9357)
     await moscow_geo.insert()
@@ -298,10 +346,21 @@ async def upload_some_products():
         await product_stock.insert()
         print(f"Запас: {stock['product'].name} на складе {stock['warehouse'].name} - {stock['quantity']} шт.")
 
-    # 5. Создаем 2-3 заказа
+    # 5. Создаем тестовых клиентов
+    clients = [
+        Client(name="Иван Петров", email="ivan.petrov@example.com", phone="+7-900-123-45-67"),
+        Client(name="Мария Сидорова", email="maria.sidorova@example.com", phone="+7-900-987-65-43"),
+        Client(name="Алексей Козлов", email="alexey.kozlov@example.com"),
+    ]
+
+    for client in clients:
+        await client.insert()
+        print(f"Создан клиент: {client.name} ({client.email})")
+
+    # 6. Создаем 2-3 заказа
     orders = [
         Order(
-            client_id=PydanticObjectId(),
+            client_id=clients[0],
             contents={
                 products[0].id: (2, products[0].price),  # 2 iPhone
                 products[2].id: (1, products[2].price),  # 1 AirPods
@@ -310,7 +369,7 @@ async def upload_some_products():
             dest_location=moscow_geo,
         ),
         Order(
-            client_id=PydanticObjectId(),
+            client_id=clients[1],
             contents={
                 products[1].id: (1, products[1].price),  # 1 MacBook
                 products[4].id: (1, products[4].price),  # 1 Apple Watch
@@ -319,7 +378,7 @@ async def upload_some_products():
             dest_location=novosibirsk_geo,
         ),
         Order(
-            client_id=PydanticObjectId(),
+            client_id=clients[2],
             contents={
                 products[3].id: (1, products[3].price),  # 1 iPad
                 products[5].id: (2, products[5].price),  # 2 Magic Keyboard
@@ -333,11 +392,34 @@ async def upload_some_products():
         await order.insert()
         print(f"Создан заказ #{i} на сумму {order.total_sum} руб.")
 
-        # 6. Создаем записи в ProductOrder для каждого товара в заказе
+        # 7. Создаем записи в ProductOrder для каждого товара в заказе
         for product_id in order.contents.keys():
             product_order = ProductOrder(product_id=product_id, order_id=order.id)
             await product_order.insert()
             print(f"  - Связь товар-заказ: {product_id} -> {order.id}")
+
+    # 8. Создаем тестовые корзины
+    carts = [
+        Cart(
+            client_id=clients[0],  # Корзина для Ивана Петрова
+            contents={products[1].id: 1, products[4].id: 2},  # 1 MacBook Air M2  # 2 Apple Watch
+            status=CartStatus.ACTIVE,
+        ),
+        Cart(
+            client_id=None,  # Гостевая корзина
+            session_id=PydanticObjectId(),
+            contents={products[2].id: 1, products[5].id: 1},  # 1 AirPods Pro 2  # 1 Magic Keyboard
+            status=CartStatus.ACTIVE,
+        ),
+    ]
+
+    for i, cart in enumerate(carts, 1):
+        await cart.insert()
+        if cart.client_id:
+            print(f"Создана корзина #{i} для клиента {cart.client_id.name}")
+        else:
+            print(f"Создана гостевая корзина #{i} (session: {cart.session_id})")
+        print(f"  - Товаров в корзине: {len(cart.contents)}")
 
 
 async def main():

@@ -1,0 +1,131 @@
+@startuml data_models_er_diagram
+'!theme plain
+skinparam linetype ortho
+
+' Entities
+entity "GeoPoint" as geo {
+  * _id : ObjectId <<PK>> <<IDX>>
+  --
+  * geohash : string
+  * lat : float
+  * lon : float
+}
+
+entity "Warehouse" as warehouse {
+  * _id : ObjectId <<PK>> <<IDX>>
+  --
+  * name : string
+  * description : string
+  location_id : ObjectId <<FK>>
+}
+
+entity "Category" as category {
+  * _id : ObjectId <<PK>> <<IDX>>
+  --
+  * name : string <<IDX>>
+  * description : string
+}
+
+entity "Client" as client {
+  * _id : ObjectId <<PK>> <<IDX>>
+  --
+  * name : string
+  * email : string <<IDX>>
+  phone : string
+  * registered_at : datetime <<IDX>>
+}
+
+entity "Product" as product {
+  * _id : ObjectId <<PK>> <<IDX>>
+  --
+  * name : string
+  * price : float <<IDX>>
+  description : string
+  category_id : ObjectId <<FK>> <<IDX>>
+  extra_info : Dict
+}
+
+entity "ProductStock" as product_stock {
+  * _id : ObjectId <<PK>> <<IDX>>
+  --
+  * product_id : ObjectId <<FK>> <<IDX>>
+  * warehouse_id : ObjectId <<FK>> <<IDX>>
+  * quantity : int
+  * updated_at : datetime <<IDX>>
+}
+
+entity "Order" as order {
+  * _id : ObjectId <<PK>> <<IDX>>
+  --
+  * client_id : ObjectId <<FK>> <<IDX>>
+  * created_at : datetime <<IDX>>
+  * status : OrderStatus
+  * total_sum : float
+  * contents : Dict
+  dest_location_id : ObjectId <<FK>>
+}
+
+entity "Cart" as cart {
+  * _id : ObjectId <<PK>> <<IDX>>
+  --
+  client_id : ObjectId <<FK>> <<IDX>>
+  session_id : ObjectId <<IDX>>
+  * status : CartStatus <<IDX>>
+  * contents : Dict
+  * created_at : datetime <<IDX>>
+  * updated_at : datetime
+  expires_at : datetime <<IDX>>
+}
+
+entity "ProductOrder" as product_order {
+  * _id : ObjectId <<PK>> <<IDX>>
+  --
+  * product_id : ObjectId <<FK>> <<IDX>>
+  * order_id : ObjectId <<FK>> <<IDX>>
+}
+
+' Relationships with Crow's Foot notation
+
+' GeoPoint to Warehouse (One-to-Many)
+geo ||--o{ warehouse : "located_at"
+
+' Category to Product (One-to-Many)
+category ||--o{ product : "categorizes"
+
+' Client to Order (One-to-Many)
+client ||--o{ order : "places"
+
+' Client to Cart (One-to-Many)
+client ||--o{ cart : "owns"
+
+' Product to ProductStock (One-to-Many)
+product ||--o{ product_stock : "has_stock"
+
+' Warehouse to ProductStock (One-to-Many)
+warehouse ||--o{ product_stock : "stores"
+
+' GeoPoint to Order (One-to-Many)
+geo ||--o{ order : "delivered_to"
+
+' Product to ProductOrder (One-to-Many)
+product ||--o{ product_order : "included_in"
+
+' Order to ProductOrder (One-to-Many)
+order ||--o{ product_order : "contains"
+
+product }o...|| cart
+
+' Notes for sharding strategy
+note right of product : "Sharded by _id"
+note right of order : "Sharded by client_id (hashed)"
+note right of cart : "Sharded by client_id (hashed)"
+note right of product_order : "Sharded by order_id (hashed)"
+note right of product_stock : "Not sharded - small volume"
+note right of warehouse : "Not sharded - reference data"
+note right of geo : "Not sharded - reference data"
+note right of client : "Not sharded - small volume"
+note right of category : "Not sharded - reference data"
+
+
+
+@enduml
