@@ -1,0 +1,50 @@
+@startuml C4_Elements
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+!pragma layout smetana true
+top to bottom direction
+
+title CDN: диаграмма контейнеров
+
+AddElementTag("third-party", $bgColor="#f5f5f5", $borderColor="DarkGray", $fontColor="Black", $legendText="Компоненты сторонних производителей")
+
+Person(user, "Посетитель интернет-магазина")
+Person(developer, Разработчик)
+
+
+Container_Boundary(external_cloud_systems, "Внешние облачные системы", external, external) {
+  System_Ext(geo_dns, "GeoDNS")
+  System_Ext(cdn, CDN)
+}
+
+Container_Boundary(internal_kube_systems, "Системы на Kubernetes-кластере") {
+  Container(eshop_backend, "Основной бэкэнд магазина", "FastAPI")
+  Container_Boundary(media_management, "Media Management") {
+    ContainerDb(minio_s3_storage, S3-хранилище, minio, $tags=third-party)
+    Container(imgproxy, imgproxy, $tags=third-party)
+    Container(media_management_system, "Media Management System", "FastAPI")
+
+    imgproxy <- media_management_system: генерация ресайзов фотографий
+    minio_s3_storage <- imgproxy
+    Rel(media_management_system, minio_s3_storage, Добавление/удаление оригиналов фотографий)
+  }
+
+  Rel(eshop_backend, media_management_system, обновление фотографий, HTTPS)
+}
+
+Rel(user, eshop_backend, получение ID фотографий, HTTPS)
+Rel(user, eshop_backend, загрузка фотографий, HTTPS)
+Rel(user, geo_dns, Получение адреса CDN в зависимости от региона IP, DNS Protocol)
+Rel(user, cdn, "запрос ресайзов фото, запрос статики", "HTTPS")
+geo_dns . cdn
+
+Rel(developer, cdn, Загрузка статических файлов сайта (с помощью CI/CD))
+
+
+Rel(cdn, media_management_system, запрос ресайзов при ненаходе в кэше, "HTTPS")
+
+
+SHOW_LEGEND()
+
+
+@enduml
