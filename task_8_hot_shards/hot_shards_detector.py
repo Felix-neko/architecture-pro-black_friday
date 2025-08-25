@@ -97,7 +97,7 @@ class HotShardDetector:
 
                 # Получаем статистику по шардам для коллекции
                 try:
-                    shard_stats = db.command("collStats", collection_name, indexDetails=True)
+                    shard_stats = db.command("collStats", collection_name)
                     if "shards" in shard_stats:
                         collection_distribution = {}
                         total_docs = 0
@@ -175,7 +175,7 @@ class HotShardDetector:
 
             # Получаем текущие операции
             try:
-                current_ops = self.admin_db.current_op()
+                current_ops = self.admin_db.command("currentOp")
                 ops_by_shard = defaultdict(list)
 
                 for op in current_ops.get("inprog", []):
@@ -465,7 +465,7 @@ class HotShardDetector:
             chunk_distribution = chunk_data["chunkDistribution"]
 
             # Вычисляем общее количество чанков
-            total_chunks = sum(shard_data["totalChunks"] for shard_data in chunk_distribution)
+            total_chunks = sum(shard_data.get("totalChunks", 0) for shard_data in chunk_distribution)
             avg_chunks_per_shard = total_chunks / len(chunk_distribution) if chunk_distribution else 0
 
             print(f"   Всего чанков: {total_chunks}")
@@ -473,16 +473,19 @@ class HotShardDetector:
             print(f"\n   {'Шард':<20} {'Чанки':<10} {'%':<8} {'Коллекции':<50}")
             print(f"   {'-'*20} {'-'*10} {'-'*8} {'-'*50}")
 
-            for shard_data in sorted(chunk_distribution, key=lambda x: x["totalChunks"], reverse=True):
-                shard_id = shard_data["_id"]
-                total_chunks_shard = shard_data["totalChunks"]
+            for shard_data in sorted(chunk_distribution, key=lambda x: x.get("totalChunks", 0), reverse=True):
+                shard_id = shard_data.get("_id", "unknown")
+                total_chunks_shard = shard_data.get("totalChunks", 0)
                 percentage = (total_chunks_shard / total_chunks * 100) if total_chunks > 0 else 0
 
                 # Формируем список коллекций
                 collections_info = []
                 for coll in shard_data.get("collections", []):
-                    ns = coll["ns"].split(".", 1)[1] if "." in coll["ns"] else coll["ns"]
-                    collections_info.append(f"{ns}({coll['chunks']})")
+                    ns = coll.get("ns", "unknown")
+                    chunks_count = coll.get("chunks", 0)
+                    if "." in ns:
+                        ns = ns.split(".", 1)[1]
+                    collections_info.append(f"{ns}({chunks_count})")
 
                 collections_str = ", ".join(collections_info[:3])  # Первые 3 коллекции
                 if len(shard_data.get("collections", [])) > 3:
